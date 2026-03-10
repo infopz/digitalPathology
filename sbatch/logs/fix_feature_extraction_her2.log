@@ -1,0 +1,468 @@
+[2026-02-09 10:03:14] Job fix_feature_extraction_her2 started on gervasoni
+Using Python from: /homes/gcasari/reggio_projects/digital_pathology/.venv/bin/python
+Script started at: 2026-02-09 10:03:14
+Train set feature extraction
+Using device: cuda
+0it [00:00, ?it/s]Skipping Patient_0_1009/Subregion_0: features already exist.
+Skipping Patient_0_1009/Subregion_1: features already exist.
+Skipping Patient_0_1009/Subregion_10: features already exist.
+Skipping Patient_0_1009/Subregion_11: features already exist.
+Skipping Patient_0_1009/Subregion_12: features already exist.
+Skipping Patient_0_1009/Subregion_13: features already exist.
+Skipping Patient_0_1009/Subregion_2: features already exist.
+Skipping Patient_0_1009/Subregion_3: features already exist.
+Skipping Patient_0_1009/Subregion_4: features already exist.
+Skipping Patient_0_1009/Subregion_5: features already exist.
+Skipping Patient_0_1009/Subregion_6: features already exist.
+Skipping Patient_0_1009/Subregion_7: features already exist.
+Skipping Patient_0_1009/Subregion_8: features already exist.
+Skipping Patient_0_1009/Subregion_9: features already exist.
+Skipping Patient_10_11009/Subregion_0: features already exist.
+Skipping Patient_10_11009/Subregion_1: features already exist.
+Skipping Patient_10_11009/Subregion_2: features already exist.
+Skipping Patient_10_11009/Subregion_3: features already exist.
+Skipping Patient_10_11009/Subregion_4: features already exist.
+20it [00:03,  6.64it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_15_16009/Patient_15_16009__Subregion_0.npz ((15, 1536))
+21it [00:11,  1.46it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_15_16009/Patient_15_16009__Subregion_1.npz ((147, 1536))
+22it [00:15,  1.03it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_15_16009/Patient_15_16009__Subregion_2.npz ((56, 1536))
+23it [00:16,  1.05s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_15_16009/Patient_15_16009__Subregion_3.npz ((16, 1536))
+24it [00:18,  1.07s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_15_16009/Patient_15_16009__Subregion_4.npz ((9, 1536))
+25it [00:23,  1.77s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_15_16009/Patient_15_16009__Subregion_5.npz ((72, 1536))
+26it [00:27,  2.12s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_15_16009/Patient_15_16009__Subregion_6.npz ((37, 1536))
+Skipping Patient_16_17009/Subregion_0: features already exist.
+Skipping Patient_16_17009/Subregion_1: features already exist.
+Skipping Patient_16_17009/Subregion_10: features already exist.
+Skipping Patient_16_17009/Subregion_2: features already exist.
+Skipping Patient_16_17009/Subregion_3: features already exist.
+Skipping Patient_16_17009/Subregion_4: features already exist.
+Skipping Patient_16_17009/Subregion_5: features already exist.
+Skipping Patient_16_17009/Subregion_6: features already exist.
+Skipping Patient_16_17009/Subregion_7: features already exist.
+Skipping Patient_16_17009/Subregion_8: features already exist.
+Skipping Patient_16_17009/Subregion_9: features already exist.
+38it [00:29,  1.51it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_18_19009/Patient_18_19009__Subregion_0.npz ((20, 1536))
+39it [00:32,  1.14it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_18_19009/Patient_18_19009__Subregion_1.npz ((30, 1536))
+40it [00:34,  1.09it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_18_19009/Patient_18_19009__Subregion_2.npz ((9, 1536))
+Skipping Patient_19_20009/Subregion_0: features already exist.
+Skipping Patient_19_20009/Subregion_1: features already exist.
+Skipping Patient_19_20009/Subregion_2: features already exist.
+Skipping Patient_19_20009/Subregion_3: features already exist.
+Skipping Patient_19_20009/Subregion_4: features already exist.
+Skipping Patient_19_20009/Subregion_5: features already exist.
+Skipping Patient_19_20009/Subregion_6: features already exist.
+Skipping Patient_19_20009/Subregion_7: features already exist.
+Skipping Patient_21_22009/Subregion_0: features already exist.
+Skipping Patient_21_22009/Subregion_1: features already exist.
+Skipping Patient_21_22009/Subregion_2: features already exist.
+Skipping Patient_21_22009/Subregion_3: features already exist.
+Skipping Patient_21_22009/Subregion_4: features already exist.
+Skipping Patient_21_22009/Subregion_5: features already exist.
+Skipping Patient_21_22009/Subregion_6: features already exist.
+Skipping Patient_232_233009/Subregion_2: features already exist.
+57it [00:36,  2.84it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_23_24009/Patient_23_24009__Subregion_0.npz ((18, 1536))
+58it [00:42,  1.44it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_23_24009/Patient_23_24009__Subregion_1.npz ((96, 1536))
+59it [00:45,  1.21it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_23_24009/Patient_23_24009__Subregion_10.npz ((21, 1536))
+60it [00:46,  1.16it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_23_24009/Patient_23_24009__Subregion_11.npz ((8, 1536))
+61it [00:50,  1.24s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_23_24009/Patient_23_24009__Subregion_12.npz ((35, 1536))
+62it [00:56,  1.92s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_23_24009/Patient_23_24009__Subregion_13.npz ((80, 1536))
+63it [00:57,  1.77s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_23_24009/Patient_23_24009__Subregion_2.npz ((7, 1536))
+64it [01:05,  3.13s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_23_24009/Patient_23_24009__Subregion_3.npz ((144, 1536))
+65it [01:10,  3.54s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_23_24009/Patient_23_24009__Subregion_4.npz ((59, 1536))
+66it [01:13,  3.26s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_23_24009/Patient_23_24009__Subregion_5.npz ((20, 1536))
+67it [01:14,  2.69s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_23_24009/Patient_23_24009__Subregion_6.npz ((8, 1536))
+68it [01:18,  3.11s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_23_24009/Patient_23_24009__Subregion_7.npz ((57, 1536))
+69it [01:19,  2.69s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_23_24009/Patient_23_24009__Subregion_8.npz ((14, 1536))
+70it [01:25,  3.43s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_23_24009/Patient_23_24009__Subregion_9.npz ((70, 1536))
+Skipping Patient_25_26009/Subregion_0: features already exist.
+Skipping Patient_25_26009/Subregion_1: features already exist.
+Skipping Patient_25_26009/Subregion_2: features already exist.
+Skipping Patient_25_26009/Subregion_3: features already exist.
+Skipping Patient_25_26009/Subregion_4: features already exist.
+Skipping Patient_25_26009/Subregion_5: features already exist.
+Skipping Patient_25_26009/Subregion_6: features already exist.
+Skipping Patient_26_27009/Subregion_0: features already exist.
+Skipping Patient_26_27009/Subregion_1: features already exist.
+Skipping Patient_26_27009/Subregion_2: features already exist.
+Skipping Patient_26_27009/Subregion_3: features already exist.
+82it [01:27,  1.37it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_27_28009/Patient_27_28009__Subregion_0.npz ((16, 1536))
+83it [01:27,  1.41it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_27_28009/Patient_27_28009__Subregion_1.npz ((3, 1536))
+84it [01:28,  1.43it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_27_28009/Patient_27_28009__Subregion_2.npz ((4, 1536))
+85it [01:28,  1.52it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_27_28009/Patient_27_28009__Subregion_3.npz ((2, 1536))
+86it [01:29,  1.41it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_27_28009/Patient_27_28009__Subregion_4.npz ((7, 1536))
+87it [01:31,  1.14it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_27_28009/Patient_27_28009__Subregion_6.npz ((13, 1536))
+88it [01:32,  1.06it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_27_28009/Patient_27_28009__Subregion_7.npz ((11, 1536))
+Skipping Patient_28_29009/Subregion_0: features already exist.
+Skipping Patient_28_29009/Subregion_1: features already exist.
+Skipping Patient_28_29009/Subregion_10: features already exist.
+Skipping Patient_28_29009/Subregion_11: features already exist.
+Skipping Patient_28_29009/Subregion_12: features already exist.
+Skipping Patient_28_29009/Subregion_2: features already exist.
+Skipping Patient_28_29009/Subregion_3: features already exist.
+Skipping Patient_28_29009/Subregion_4: features already exist.
+Skipping Patient_28_29009/Subregion_5: features already exist.
+Skipping Patient_28_29009/Subregion_6: features already exist.
+Skipping Patient_28_29009/Subregion_7: features already exist.
+Skipping Patient_28_29009/Subregion_8: features already exist.
+Skipping Patient_28_29009/Subregion_9: features already exist.
+Skipping Patient_2_3009/Subregion_0: features already exist.
+Skipping Patient_2_3009/Subregion_1: features already exist.
+Skipping Patient_2_3009/Subregion_2: features already exist.
+Skipping Patient_2_3009/Subregion_3: features already exist.
+Skipping Patient_2_3009/Subregion_4: features already exist.
+Skipping Patient_2_3009/Subregion_5: features already exist.
+Skipping Patient_2_3009/Subregion_6: features already exist.
+Skipping Patient_2_3009/Subregion_7: features already exist.
+Skipping Patient_31_32009/Subregion_0: features already exist.
+Skipping Patient_31_32009/Subregion_1: features already exist.
+Skipping Patient_31_32009/Subregion_2: features already exist.
+Skipping Patient_31_32009/Subregion_3: features already exist.
+Skipping Patient_31_32009/Subregion_4: features already exist.
+Skipping Patient_31_32009/Subregion_5: features already exist.
+Skipping Patient_31_32009/Subregion_6: features already exist.
+Skipping Patient_31_32009/Subregion_7: features already exist.
+118it [01:40,  2.96it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_33_34009/Patient_33_34009__Subregion_0.npz ((128, 1536))
+119it [01:41,  2.96it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_33_34009/Patient_33_34009__Subregion_1.npz ((1, 1536))
+120it [01:42,  2.53it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_33_34009/Patient_33_34009__Subregion_2.npz ((10, 1536))
+121it [01:46,  1.59it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_33_34009/Patient_33_34009__Subregion_4.npz ((30, 1536))
+122it [01:47,  1.36it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_33_34009/Patient_33_34009__Subregion_5.npz ((12, 1536))
+Skipping Patient_35_36009/Subregion_0: features already exist.
+Skipping Patient_35_36009/Subregion_1: features already exist.
+Skipping Patient_35_36009/Subregion_2: features already exist.
+Skipping Patient_35_36009/Subregion_3: features already exist.
+Skipping Patient_35_36009/Subregion_4: features already exist.
+Skipping Patient_35_36009/Subregion_5: features already exist.
+Skipping Patient_35_36009/Subregion_6: features already exist.
+Skipping Patient_35_36009/Subregion_7: features already exist.
+Skipping Patient_35_36009/Subregion_8: features already exist.
+Skipping Patient_35_36009/Subregion_9: features already exist.
+Skipping Patient_379_380009/Subregion_0: features already exist.
+Skipping Patient_379_380009/Subregion_1: features already exist.
+Skipping Patient_379_380009/Subregion_10: features already exist.
+Skipping Patient_379_380009/Subregion_11: features already exist.
+Skipping Patient_379_380009/Subregion_12: features already exist.
+Skipping Patient_379_380009/Subregion_13: features already exist.
+Skipping Patient_379_380009/Subregion_14: features already exist.
+Skipping Patient_379_380009/Subregion_15: features already exist.
+Skipping Patient_379_380009/Subregion_16: features already exist.
+Skipping Patient_379_380009/Subregion_17: features already exist.
+Skipping Patient_379_380009/Subregion_18: features already exist.
+Skipping Patient_379_380009/Subregion_19: features already exist.
+Skipping Patient_379_380009/Subregion_2: features already exist.
+Skipping Patient_379_380009/Subregion_3: features already exist.
+Skipping Patient_379_380009/Subregion_4: features already exist.
+Skipping Patient_379_380009/Subregion_5: features already exist.
+Skipping Patient_379_380009/Subregion_6: features already exist.
+Skipping Patient_379_380009/Subregion_7: features already exist.
+Skipping Patient_379_380009/Subregion_8: features already exist.
+Skipping Patient_379_380009/Subregion_9: features already exist.
+153it [01:49,  5.35it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_37_38009/Patient_37_38009__Subregion_0.npz ((14, 1536))
+154it [01:56,  2.31it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_37_38009/Patient_37_38009__Subregion_1.npz ((104, 1536))
+155it [01:59,  1.75it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_37_38009/Patient_37_38009__Subregion_2.npz ((30, 1536))
+156it [02:30,  2.52s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_37_38009/Patient_37_38009__Subregion_3.npz ((643, 1536))
+157it [02:50,  4.04s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_37_38009/Patient_37_38009__Subregion_4.npz ((418, 1536))
+158it [02:52,  3.85s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_37_38009/Patient_37_38009__Subregion_5.npz ((20, 1536))
+159it [02:56,  3.84s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_37_38009/Patient_37_38009__Subregion_6.npz ((42, 1536))
+160it [02:58,  3.53s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_37_38009/Patient_37_38009__Subregion_7.npz ((16, 1536))
+161it [03:06,  4.25s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_37_38009/Patient_37_38009__Subregion_8.npz ((130, 1536))
+162it [03:12,  4.62s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_37_38009/Patient_37_38009__Subregion_9.npz ((81, 1536))
+Skipping Patient_380_381009/Subregion_0: features already exist.
+Skipping Patient_380_381009/Subregion_1: features already exist.
+Skipping Patient_380_381009/Subregion_10: features already exist.
+Skipping Patient_380_381009/Subregion_11: features already exist.
+Skipping Patient_380_381009/Subregion_13: features already exist.
+Skipping Patient_380_381009/Subregion_2: features already exist.
+Skipping Patient_380_381009/Subregion_3: features already exist.
+Skipping Patient_380_381009/Subregion_4: features already exist.
+Skipping Patient_380_381009/Subregion_5: features already exist.
+Skipping Patient_380_381009/Subregion_6: features already exist.
+Skipping Patient_380_381009/Subregion_7: features already exist.
+Skipping Patient_380_381009/Subregion_8: features already exist.
+Skipping Patient_380_381009/Subregion_9: features already exist.
+Skipping Patient_38_39009/Subregion_0: features already exist.
+Skipping Patient_38_39009/Subregion_1: features already exist.
+Skipping Patient_38_39009/Subregion_3: features already exist.
+Skipping Patient_38_39009/Subregion_4: features already exist.
+Skipping Patient_38_39009/Subregion_5: features already exist.
+Skipping Patient_38_39009/Subregion_6: features already exist.
+182it [03:13,  1.36it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_40_41009/Patient_40_41009__Subregion_0.npz ((15, 1536))
+183it [03:15,  1.24it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_40_41009/Patient_40_41009__Subregion_1.npz ((19, 1536))
+184it [03:18,  1.07it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_40_41009/Patient_40_41009__Subregion_2.npz ((25, 1536))
+185it [03:36,  2.62s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_40_41009/Patient_40_41009__Subregion_3.npz ((360, 1536))
+186it [03:38,  2.55s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_40_41009/Patient_40_41009__Subregion_4.npz ((19, 1536))
+187it [03:40,  2.48s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_40_41009/Patient_40_41009__Subregion_5.npz ((22, 1536))
+188it [03:42,  2.37s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_40_41009/Patient_40_41009__Subregion_6.npz ((16, 1536))
+189it [03:44,  2.33s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_40_41009/Patient_40_41009__Subregion_7.npz ((20, 1536))
+190it [03:47,  2.55s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_40_41009/Patient_40_41009__Subregion_8.npz ((41, 1536))
+191it [03:51,  2.78s/it]315it [03:51, 15.54it/s]319it [03:51,  1.38it/s]
+Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_40_41009/Patient_40_41009__Subregion_9.npz ((35, 1536))
+Skipping Patient_47_48009/Subregion_0: features already exist.
+Skipping Patient_47_48009/Subregion_1: features already exist.
+Skipping Patient_47_48009/Subregion_10: features already exist.
+Skipping Patient_47_48009/Subregion_11: features already exist.
+Skipping Patient_47_48009/Subregion_12: features already exist.
+Skipping Patient_47_48009/Subregion_2: features already exist.
+Skipping Patient_47_48009/Subregion_3: features already exist.
+Skipping Patient_47_48009/Subregion_4: features already exist.
+Skipping Patient_47_48009/Subregion_5: features already exist.
+Skipping Patient_47_48009/Subregion_6: features already exist.
+Skipping Patient_47_48009/Subregion_7: features already exist.
+Skipping Patient_47_48009/Subregion_8: features already exist.
+Skipping Patient_47_48009/Subregion_9: features already exist.
+Skipping Patient_4_5009/Subregion_0: features already exist.
+Skipping Patient_4_5009/Subregion_1: features already exist.
+Skipping Patient_4_5009/Subregion_2: features already exist.
+Skipping Patient_4_5009/Subregion_3: features already exist.
+Skipping Patient_4_5009/Subregion_4: features already exist.
+Skipping Patient_4_5009/Subregion_5: features already exist.
+Skipping Patient_4_5009/Subregion_6: features already exist.
+Skipping Patient_4_5009/Subregion_7: features already exist.
+Skipping Patient_4_5009/Subregion_8: features already exist.
+Skipping Patient_52_53009/Subregion_0: features already exist.
+Skipping Patient_52_53009/Subregion_1: features already exist.
+Skipping Patient_52_53009/Subregion_2: features already exist.
+Skipping Patient_52_53009/Subregion_4: features already exist.
+Skipping Patient_52_53009/Subregion_5: features already exist.
+Skipping Patient_52_53009/Subregion_6: features already exist.
+Skipping Patient_52_53009/Subregion_7: features already exist.
+Skipping Patient_55_56009/Subregion_0: features already exist.
+Skipping Patient_55_56009/Subregion_1: features already exist.
+Skipping Patient_55_56009/Subregion_10: features already exist.
+Skipping Patient_55_56009/Subregion_11: features already exist.
+Skipping Patient_55_56009/Subregion_12: features already exist.
+Skipping Patient_55_56009/Subregion_13: features already exist.
+Skipping Patient_55_56009/Subregion_14: features already exist.
+Skipping Patient_55_56009/Subregion_15: features already exist.
+Skipping Patient_55_56009/Subregion_16: features already exist.
+Skipping Patient_55_56009/Subregion_17: features already exist.
+Skipping Patient_55_56009/Subregion_18: features already exist.
+Skipping Patient_55_56009/Subregion_19: features already exist.
+Skipping Patient_55_56009/Subregion_2: features already exist.
+Skipping Patient_55_56009/Subregion_20: features already exist.
+Skipping Patient_55_56009/Subregion_21: features already exist.
+Skipping Patient_55_56009/Subregion_22: features already exist.
+Skipping Patient_55_56009/Subregion_23: features already exist.
+Skipping Patient_55_56009/Subregion_24: features already exist.
+Skipping Patient_55_56009/Subregion_3: features already exist.
+Skipping Patient_55_56009/Subregion_4: features already exist.
+Skipping Patient_55_56009/Subregion_5: features already exist.
+Skipping Patient_55_56009/Subregion_6: features already exist.
+Skipping Patient_55_56009/Subregion_7: features already exist.
+Skipping Patient_55_56009/Subregion_8: features already exist.
+Skipping Patient_55_56009/Subregion_9: features already exist.
+Skipping Patient_5_6009/Subregion_0: features already exist.
+Skipping Patient_5_6009/Subregion_1: features already exist.
+Skipping Patient_5_6009/Subregion_2: features already exist.
+Skipping Patient_65_66009/Subregion_0: features already exist.
+Skipping Patient_65_66009/Subregion_1: features already exist.
+Skipping Patient_65_66009/Subregion_2: features already exist.
+Skipping Patient_65_66009/Subregion_3: features already exist.
+Skipping Patient_65_66009/Subregion_4: features already exist.
+Skipping Patient_65_66009/Subregion_5: features already exist.
+Skipping Patient_65_66009/Subregion_6: features already exist.
+Skipping Patient_6_7009/Subregion_0: features already exist.
+Skipping Patient_6_7009/Subregion_1: features already exist.
+Skipping Patient_6_7009/Subregion_2: features already exist.
+Skipping Patient_6_7009/Subregion_3: features already exist.
+Skipping Patient_72_73009/Subregion_0: features already exist.
+Skipping Patient_72_73009/Subregion_1: features already exist.
+Skipping Patient_72_73009/Subregion_2: features already exist.
+Skipping Patient_72_73009/Subregion_3: features already exist.
+Skipping Patient_77_78009/Subregion_0: features already exist.
+Skipping Patient_77_78009/Subregion_1: features already exist.
+Skipping Patient_77_78009/Subregion_11: features already exist.
+Skipping Patient_77_78009/Subregion_12: features already exist.
+Skipping Patient_77_78009/Subregion_13: features already exist.
+Skipping Patient_77_78009/Subregion_14: features already exist.
+Skipping Patient_77_78009/Subregion_15: features already exist.
+Skipping Patient_77_78009/Subregion_2: features already exist.
+Skipping Patient_77_78009/Subregion_3: features already exist.
+Skipping Patient_77_78009/Subregion_4: features already exist.
+Skipping Patient_77_78009/Subregion_5: features already exist.
+Skipping Patient_77_78009/Subregion_6: features already exist.
+Skipping Patient_77_78009/Subregion_7: features already exist.
+Skipping Patient_77_78009/Subregion_8: features already exist.
+Skipping Patient_77_78009/Subregion_9: features already exist.
+Skipping Patient_7_8009/Subregion_0: features already exist.
+Skipping Patient_7_8009/Subregion_1: features already exist.
+Skipping Patient_7_8009/Subregion_2: features already exist.
+Skipping Patient_7_8009/Subregion_3: features already exist.
+Skipping Patient_7_8009/Subregion_4: features already exist.
+Skipping Patient_7_8009/Subregion_5: features already exist.
+Skipping Patient_7_8009/Subregion_6: features already exist.
+Skipping Patient_91_92009/Subregion_0: features already exist.
+Skipping Patient_91_92009/Subregion_2: features already exist.
+Skipping Patient_91_92009/Subregion_3: features already exist.
+Skipping Patient_91_92009/Subregion_4: features already exist.
+Skipping Patient_91_92009/Subregion_5: features already exist.
+Skipping Patient_91_92009/Subregion_6: features already exist.
+Skipping Patient_91_92009/Subregion_7: features already exist.
+Skipping Patient_91_92009/Subregion_8: features already exist.
+Skipping Patient_95_96009/Subregion_0: features already exist.
+Skipping Patient_95_96009/Subregion_1: features already exist.
+Skipping Patient_95_96009/Subregion_2: features already exist.
+Skipping Patient_95_96009/Subregion_3: features already exist.
+Skipping Patient_95_96009/Subregion_4: features already exist.
+Skipping Patient_95_96009/Subregion_5: features already exist.
+Skipping Patient_95_96009/Subregion_6: features already exist.
+Skipping Patient_97_98009/Subregion_0: features already exist.
+Skipping Patient_97_98009/Subregion_1: features already exist.
+Skipping Patient_97_98009/Subregion_10: features already exist.
+Skipping Patient_97_98009/Subregion_11: features already exist.
+Skipping Patient_97_98009/Subregion_12: features already exist.
+Skipping Patient_97_98009/Subregion_13: features already exist.
+Skipping Patient_97_98009/Subregion_2: features already exist.
+Skipping Patient_97_98009/Subregion_3: features already exist.
+Skipping Patient_97_98009/Subregion_4: features already exist.
+Skipping Patient_97_98009/Subregion_5: features already exist.
+Skipping Patient_97_98009/Subregion_6: features already exist.
+Skipping Patient_97_98009/Subregion_7: features already exist.
+Skipping Patient_97_98009/Subregion_8: features already exist.
+Skipping Patient_97_98009/Subregion_9: features already exist.
+Skipping Patient_9_10009/Subregion_0: features already exist.
+Skipping Patient_9_10009/Subregion_1: features already exist.
+Skipping Patient_9_10009/Subregion_2: features already exist.
+Skipping Patient_9_10009/Subregion_3: features already exist.
+Skipping Patient_9_10009/Subregion_4: features already exist.
+Using device: cuda
+0it [00:00, ?it/s]Skipping Patient_115_116009/Subregion_0: features already exist.
+Skipping Patient_115_116009/Subregion_1: features already exist.
+Skipping Patient_115_116009/Subregion_2: features already exist.
+Skipping Patient_115_116009/Subregion_3: features already exist.
+Skipping Patient_115_116009/Subregion_4: features already exist.
+Skipping Patient_115_116009/Subregion_5: features already exist.
+Skipping Patient_115_116009/Subregion_6: features already exist.
+Skipping Patient_115_116009/Subregion_7: features already exist.
+Skipping Patient_147_148009/Subregion_0: features already exist.
+Skipping Patient_147_148009/Subregion_1: features already exist.
+Skipping Patient_147_148009/Subregion_10: features already exist.
+Skipping Patient_147_148009/Subregion_11: features already exist.
+Skipping Patient_147_148009/Subregion_12: features already exist.
+Skipping Patient_147_148009/Subregion_13: features already exist.
+Skipping Patient_147_148009/Subregion_14: features already exist.
+Skipping Patient_147_148009/Subregion_15: features already exist.
+Skipping Patient_147_148009/Subregion_16: features already exist.
+Skipping Patient_147_148009/Subregion_2: features already exist.
+Skipping Patient_147_148009/Subregion_3: features already exist.
+Skipping Patient_147_148009/Subregion_5: features already exist.
+Skipping Patient_147_148009/Subregion_6: features already exist.
+Skipping Patient_147_148009/Subregion_8: features already exist.
+Skipping Patient_147_148009/Subregion_9: features already exist.
+24it [00:03,  7.41it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0.npz ((26, 1536))
+25it [00:03,  6.34it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_1.npz ((3, 1536))
+26it [00:04,  4.79it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_2.npz ((6, 1536))
+27it [00:08,  1.81it/s]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4.npz ((37, 1536))
+28it [00:11,  1.24it/s]54it [00:11,  4.88it/s]
+Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5.npz ((26, 1536))
+Skipping Patient_36_37009/Subregion_0: features already exist.
+Skipping Patient_36_37009/Subregion_1: features already exist.
+Skipping Patient_36_37009/Subregion_2: features already exist.
+Skipping Patient_36_37009/Subregion_3: features already exist.
+Skipping Patient_36_37009/Subregion_4: features already exist.
+Skipping Patient_36_37009/Subregion_5: features already exist.
+Skipping Patient_3_4009/Subregion_0: features already exist.
+Skipping Patient_3_4009/Subregion_1: features already exist.
+Skipping Patient_3_4009/Subregion_2: features already exist.
+Skipping Patient_3_4009/Subregion_3: features already exist.
+Skipping Patient_3_4009/Subregion_4: features already exist.
+Skipping Patient_3_4009/Subregion_5: features already exist.
+Skipping Patient_3_4009/Subregion_6: features already exist.
+Skipping Patient_3_4009/Subregion_7: features already exist.
+Skipping Patient_3_4009/Subregion_8: features already exist.
+Skipping Patient_500_501009/Subregion_10: features already exist.
+Skipping Patient_500_501009/Subregion_2: features already exist.
+Skipping Patient_500_501009/Subregion_4: features already exist.
+Skipping Patient_500_501009/Subregion_5: features already exist.
+Skipping Patient_500_501009/Subregion_6: features already exist.
+Skipping Patient_500_501009/Subregion_7: features already exist.
+Skipping Patient_500_501009/Subregion_8: features already exist.
+Skipping Patient_500_501009/Subregion_9: features already exist.
+Skipping Patient_8_9009/Subregion_0: features already exist.
+Skipping Patient_8_9009/Subregion_1: features already exist.
+Skipping Patient_8_9009/Subregion_2: features already exist.
+Using device: cuda
+0it [00:00, ?it/s]83it [00:00, 1104.15it/s]
+Skipping Patient_130_131009/Subregion_0: features already exist.
+Skipping Patient_130_131009/Subregion_1: features already exist.
+Skipping Patient_130_131009/Subregion_10: features already exist.
+Skipping Patient_130_131009/Subregion_2: features already exist.
+Skipping Patient_130_131009/Subregion_3: features already exist.
+Skipping Patient_130_131009/Subregion_4: features already exist.
+Skipping Patient_130_131009/Subregion_5: features already exist.
+Skipping Patient_130_131009/Subregion_6: features already exist.
+Skipping Patient_130_131009/Subregion_7: features already exist.
+Skipping Patient_130_131009/Subregion_8: features already exist.
+Skipping Patient_130_131009/Subregion_9: features already exist.
+Skipping Patient_13_14009/Subregion_0: features already exist.
+Skipping Patient_13_14009/Subregion_1: features already exist.
+Skipping Patient_13_14009/Subregion_2: features already exist.
+Skipping Patient_13_14009/Subregion_3: features already exist.
+Skipping Patient_13_14009/Subregion_4: features already exist.
+Skipping Patient_13_14009/Subregion_5: features already exist.
+Skipping Patient_13_14009/Subregion_6: features already exist.
+Skipping Patient_13_14009/Subregion_7: features already exist.
+Skipping Patient_149_150009/Subregion_1: features already exist.
+Skipping Patient_149_150009/Subregion_2: features already exist.
+Skipping Patient_149_150009/Subregion_3: features already exist.
+Skipping Patient_17_18009/Subregion_0: features already exist.
+Skipping Patient_17_18009/Subregion_1: features already exist.
+Skipping Patient_17_18009/Subregion_2: features already exist.
+Skipping Patient_17_18009/Subregion_3: features already exist.
+Skipping Patient_17_18009/Subregion_4: features already exist.
+Skipping Patient_29_30009/Subregion_0: features already exist.
+Skipping Patient_29_30009/Subregion_1: features already exist.
+Skipping Patient_29_30009/Subregion_2: features already exist.
+Skipping Patient_29_30009/Subregion_3: features already exist.
+Skipping Patient_29_30009/Subregion_4: features already exist.
+Skipping Patient_32_33009/Subregion_0: features already exist.
+Skipping Patient_32_33009/Subregion_1: features already exist.
+Skipping Patient_32_33009/Subregion_10: features already exist.
+Skipping Patient_32_33009/Subregion_11: features already exist.
+Skipping Patient_32_33009/Subregion_12: features already exist.
+Skipping Patient_32_33009/Subregion_13: features already exist.
+Skipping Patient_32_33009/Subregion_14: features already exist.
+Skipping Patient_32_33009/Subregion_2: features already exist.
+Skipping Patient_32_33009/Subregion_3: features already exist.
+Skipping Patient_32_33009/Subregion_4: features already exist.
+Skipping Patient_32_33009/Subregion_5: features already exist.
+Skipping Patient_32_33009/Subregion_6: features already exist.
+Skipping Patient_32_33009/Subregion_7: features already exist.
+Skipping Patient_32_33009/Subregion_8: features already exist.
+Skipping Patient_32_33009/Subregion_9: features already exist.
+Skipping Patient_34_35009/Subregion_0: features already exist.
+Skipping Patient_34_35009/Subregion_1: features already exist.
+Skipping Patient_34_35009/Subregion_10: features already exist.
+Skipping Patient_34_35009/Subregion_2: features already exist.
+Skipping Patient_34_35009/Subregion_3: features already exist.
+Skipping Patient_34_35009/Subregion_4: features already exist.
+Skipping Patient_34_35009/Subregion_5: features already exist.
+Skipping Patient_34_35009/Subregion_6: features already exist.
+Skipping Patient_34_35009/Subregion_7: features already exist.
+Skipping Patient_34_35009/Subregion_8: features already exist.
+Skipping Patient_34_35009/Subregion_9: features already exist.
+Skipping Patient_41_42009/Subregion_0: features already exist.
+Skipping Patient_41_42009/Subregion_1: features already exist.
+Skipping Patient_41_42009/Subregion_10: features already exist.
+Skipping Patient_41_42009/Subregion_11: features already exist.
+Skipping Patient_41_42009/Subregion_2: features already exist.
+Skipping Patient_41_42009/Subregion_3: features already exist.
+Skipping Patient_41_42009/Subregion_4: features already exist.
+Skipping Patient_41_42009/Subregion_5: features already exist.
+Skipping Patient_41_42009/Subregion_9: features already exist.
+Skipping Patient_60_61009/Subregion_0: features already exist.
+Skipping Patient_60_61009/Subregion_1: features already exist.
+Skipping Patient_60_61009/Subregion_10: features already exist.
+Skipping Patient_60_61009/Subregion_11: features already exist.
+Skipping Patient_60_61009/Subregion_12: features already exist.
+Skipping Patient_60_61009/Subregion_13: features already exist.
+Skipping Patient_60_61009/Subregion_14: features already exist.
+Skipping Patient_60_61009/Subregion_15: features already exist.
+Skipping Patient_60_61009/Subregion_2: features already exist.
+Skipping Patient_60_61009/Subregion_3: features already exist.
+Skipping Patient_60_61009/Subregion_4: features already exist.
+Skipping Patient_60_61009/Subregion_5: features already exist.
+Skipping Patient_60_61009/Subregion_6: features already exist.
+Skipping Patient_60_61009/Subregion_7: features already exist.
+Skipping Patient_60_61009/Subregion_8: features already exist.
+Skipping Patient_60_61009/Subregion_9: features already exist.
+[2026-02-09 10:08:52] Job fix_feature_extraction_her2 finished.
+Runtime: 338 seconds (5 min)

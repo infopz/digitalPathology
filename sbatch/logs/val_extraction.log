@@ -1,0 +1,155 @@
+[2026-02-05 16:02:34] Job val_feature_extraction_her2 started on gervasoni
+Using Python from: /homes/gcasari/reggio_projects/digital_pathology/.venv/bin/python
+Script started at: 2026-02-05 16:02:34
+Train set feature extraction
+Using device: cuda
+0it [00:00, ?it/s]1it [00:06,  6.14s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_115_116009/Patient_115_116009__Subregion_0.npz ((12, 1536))
+2it [00:06,  2.87s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_115_116009/Patient_115_116009__Subregion_1.npz ((2, 1536))
+3it [00:07,  1.87s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_115_116009/Patient_115_116009__Subregion_2.npz ((3, 1536))
+4it [00:08,  1.55s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_115_116009/Patient_115_116009__Subregion_3.npz ((6, 1536))
+5it [00:09,  1.51s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_115_116009/Patient_115_116009__Subregion_4.npz ((9, 1536))
+6it [00:12,  1.90s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_115_116009/Patient_115_116009__Subregion_5.npz ((17, 1536))
+7it [00:12,  1.40s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_115_116009/Patient_115_116009__Subregion_6.npz ((1, 1536))
+8it [00:13,  1.27s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_115_116009/Patient_115_116009__Subregion_7.npz ((6, 1536))
+9it [00:19,  2.52s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_147_148009/Patient_147_148009__Subregion_0.npz ((38, 1536))
+10it [00:24,  3.37s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_147_148009/Patient_147_148009__Subregion_1.npz ((41, 1536))
+11it [00:26,  2.85s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_147_148009/Patient_147_148009__Subregion_10.npz ((12, 1536))
+12it [00:29,  3.01s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_147_148009/Patient_147_148009__Subregion_11.npz ((18, 1536))
+13it [00:30,  2.48s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_147_148009/Patient_147_148009__Subregion_12.npz ((7, 1536))
+14it [00:34,  2.76s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_147_148009/Patient_147_148009__Subregion_13.npz ((20, 1536))
+15it [00:39,  3.54s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_147_148009/Patient_147_148009__Subregion_14.npz ((44, 1536))
+16it [00:40,  2.89s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_147_148009/Patient_147_148009__Subregion_15.npz ((10, 1536))
+17it [00:44,  2.95s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_147_148009/Patient_147_148009__Subregion_16.npz ((18, 1536))
+18it [00:48,  3.36s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_147_148009/Patient_147_148009__Subregion_2.npz ((27, 1536))
+19it [00:51,  3.17s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_147_148009/Patient_147_148009__Subregion_3.npz ((15, 1536))
+20it [00:52,  2.53s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_147_148009/Patient_147_148009__Subregion_5.npz ((5, 1536))
+21it [00:54,  2.47s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_147_148009/Patient_147_148009__Subregion_6.npz ((11, 1536))
+22it [00:59,  3.12s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_147_148009/Patient_147_148009__Subregion_8.npz ((28, 1536))
+23it [01:00,  2.50s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_147_148009/Patient_147_148009__Subregion_9.npz ((7, 1536))
+24it [01:08,  4.21s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_1_3.png.npz ((98, 1536))
+25it [01:13,  4.48s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_1_4.png.npz ((98, 1536))
+26it [01:18,  4.71s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_1_5.png.npz ((98, 1536))
+27it [01:24,  4.95s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_1_6.png.npz ((98, 1536))
+28it [01:29,  5.07s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_1_7.png.npz ((98, 1536))
+29it [01:35,  5.20s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_2_3.png.npz ((98, 1536))
+30it [01:40,  5.19s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_2_4.png.npz ((98, 1536))
+31it [01:45,  5.30s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_2_5.png.npz ((98, 1536))
+32it [01:50,  5.22s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_2_6.png.npz ((98, 1536))
+33it [01:56,  5.30s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_3_2.png.npz ((98, 1536))
+34it [02:01,  5.24s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_3_3.png.npz ((98, 1536))
+35it [02:06,  5.32s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_3_4.png.npz ((98, 1536))
+36it [02:12,  5.46s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_3_5.png.npz ((98, 1536))
+37it [02:18,  5.53s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_3_6.png.npz ((98, 1536))
+38it [02:23,  5.48s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_4_3.png.npz ((98, 1536))
+39it [02:29,  5.43s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_4_4.png.npz ((98, 1536))
+40it [02:36,  6.17s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_4_5.png.npz ((98, 1536))
+41it [02:43,  6.21s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_4_6.png.npz ((98, 1536))
+42it [02:48,  6.04s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_5_1.png.npz ((98, 1536))
+43it [02:55,  6.17s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_5_3.png.npz ((98, 1536))
+44it [03:01,  6.01s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_5_4.png.npz ((98, 1536))
+45it [03:06,  5.84s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_5_5.png.npz ((98, 1536))
+46it [03:12,  5.96s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_6_1.png.npz ((98, 1536))
+47it [03:17,  5.76s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_6_2.png.npz ((98, 1536))
+48it [03:23,  5.64s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_7_1.png.npz ((98, 1536))
+49it [03:28,  5.62s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_0\22_23009_0_7_2.png.npz ((98, 1536))
+50it [03:39,  7.10s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_1\22_23009_1_8_7.png.npz ((98, 1536))
+51it [03:45,  6.85s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_1\22_23009_1_8_8.png.npz ((98, 1536))
+52it [03:51,  6.53s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_1\22_23009_1_8_9.png.npz ((98, 1536))
+53it [03:56,  6.19s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_2\22_23009_2_0_1.png.npz ((98, 1536))
+54it [04:02,  6.09s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_2\22_23009_2_0_2.png.npz ((98, 1536))
+55it [04:08,  5.87s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_2\22_23009_2_0_3.png.npz ((98, 1536))
+56it [04:13,  5.67s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_2\22_23009_2_1_1.png.npz ((98, 1536))
+57it [04:18,  5.48s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_2\22_23009_2_1_2.png.npz ((98, 1536))
+58it [04:23,  5.51s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_2\22_23009_2_1_3.png.npz ((98, 1536))
+59it [04:29,  5.41s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_0_7.png.npz ((98, 1536))
+60it [04:34,  5.44s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_0_8.png.npz ((98, 1536))
+61it [04:39,  5.36s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_0_9.png.npz ((98, 1536))
+62it [04:45,  5.34s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_1_4.png.npz ((98, 1536))
+63it [04:50,  5.39s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_1_5.png.npz ((98, 1536))
+64it [04:55,  5.34s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_1_6.png.npz ((98, 1536))
+65it [05:01,  5.46s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_1_7.png.npz ((98, 1536))
+66it [05:07,  5.51s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_1_8.png.npz ((98, 1536))
+67it [05:13,  5.63s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_1_9.png.npz ((98, 1536))
+68it [05:18,  5.63s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_2_2.png.npz ((98, 1536))
+69it [05:24,  5.69s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_2_3.png.npz ((98, 1536))
+70it [05:29,  5.53s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_2_4.png.npz ((98, 1536))
+71it [05:35,  5.48s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_2_5.png.npz ((98, 1536))
+72it [05:40,  5.36s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_2_6.png.npz ((98, 1536))
+73it [05:45,  5.37s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_2_7.png.npz ((98, 1536))
+74it [05:50,  5.36s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_2_8.png.npz ((98, 1536))
+75it [05:55,  5.24s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_2_9.png.npz ((98, 1536))
+76it [06:01,  5.22s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_3_2.png.npz ((98, 1536))
+77it [06:06,  5.19s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_3_3.png.npz ((98, 1536))
+78it [06:11,  5.23s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_3_4.png.npz ((98, 1536))
+79it [06:17,  5.38s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_3_5.png.npz ((98, 1536))
+80it [06:22,  5.37s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_3_6.png.npz ((98, 1536))
+81it [06:27,  5.37s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_3_7.png.npz ((98, 1536))
+82it [06:33,  5.38s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_3_8.png.npz ((98, 1536))
+83it [06:38,  5.36s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_3_9.png.npz ((98, 1536))
+84it [06:43,  5.29s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_4_1.png.npz ((98, 1536))
+85it [06:49,  5.37s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_4_2.png.npz ((98, 1536))
+86it [06:54,  5.31s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_4_3.png.npz ((98, 1536))
+87it [06:59,  5.30s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_4_4.png.npz ((98, 1536))
+88it [07:05,  5.34s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_4_5.png.npz ((98, 1536))
+89it [07:10,  5.38s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_4_8.png.npz ((98, 1536))
+90it [07:16,  5.57s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_5_2.png.npz ((98, 1536))
+91it [07:21,  5.43s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_5_3.png.npz ((98, 1536))
+92it [07:28,  5.69s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_5_4.png.npz ((98, 1536))
+93it [07:33,  5.59s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_5_5.png.npz ((98, 1536))
+94it [07:38,  5.52s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_6_2.png.npz ((98, 1536))
+95it [07:47,  6.47s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_4\22_23009_4_6_3.png.npz ((98, 1536))
+96it [07:53,  6.19s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_1_2.png.npz ((98, 1536))
+97it [07:58,  6.05s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_2_2.png.npz ((98, 1536))
+98it [08:04,  5.91s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_2_3.png.npz ((98, 1536))
+99it [08:09,  5.70s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_3_1.png.npz ((98, 1536))
+100it [08:15,  5.63s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_3_2.png.npz ((98, 1536))
+101it [08:20,  5.50s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_3_3.png.npz ((98, 1536))
+102it [08:25,  5.52s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_3_4.png.npz ((98, 1536))
+103it [08:38,  7.56s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_3_5.png.npz ((98, 1536))
+104it [08:44,  7.19s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_4_1.png.npz ((98, 1536))
+105it [08:50,  6.76s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_4_2.png.npz ((98, 1536))
+106it [08:55,  6.35s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_4_3.png.npz ((98, 1536))
+107it [09:00,  6.01s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_4_4.png.npz ((98, 1536))
+108it [09:05,  5.73s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_4_5.png.npz ((98, 1536))
+109it [09:11,  5.59s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_5_1.png.npz ((98, 1536))
+110it [09:16,  5.49s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_5_2.png.npz ((98, 1536))
+111it [09:21,  5.43s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_5_3.png.npz ((98, 1536))
+112it [09:26,  5.39s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_5_4.png.npz ((98, 1536))
+113it [09:32,  5.31s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_6_0.png.npz ((98, 1536))
+114it [09:37,  5.31s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_6_1.png.npz ((98, 1536))
+115it [09:42,  5.33s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_6_2.png.npz ((98, 1536))
+116it [09:48,  5.36s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_6_3.png.npz ((98, 1536))
+117it [09:53,  5.45s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_7_0.png.npz ((98, 1536))
+118it [09:59,  5.44s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_7_1.png.npz ((98, 1536))
+119it [10:04,  5.30s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_7_2.png.npz ((98, 1536))
+120it [10:09,  5.26s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_8_0.png.npz ((98, 1536))
+121it [10:14,  5.27s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_22_23009/Patient_22_23009__Subregion_5\22_23009_5_8_1.png.npz ((98, 1536))
+122it [10:18,  4.75s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_36_37009/Patient_36_37009__Subregion_0.npz ((23, 1536))
+123it [10:19,  3.80s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_36_37009/Patient_36_37009__Subregion_1.npz ((8, 1536))
+124it [10:21,  3.10s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_36_37009/Patient_36_37009__Subregion_2.npz ((9, 1536))
+125it [10:23,  2.80s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_36_37009/Patient_36_37009__Subregion_3.npz ((12, 1536))
+126it [10:28,  3.63s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_36_37009/Patient_36_37009__Subregion_4.npz ((47, 1536))
+127it [10:33,  3.96s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_36_37009/Patient_36_37009__Subregion_5.npz ((34, 1536))
+128it [10:37,  3.91s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_3_4009/Patient_3_4009__Subregion_0.npz ((27, 1536))
+129it [10:42,  4.36s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_3_4009/Patient_3_4009__Subregion_1.npz ((51, 1536))
+130it [10:48,  4.68s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_3_4009/Patient_3_4009__Subregion_2.npz ((47, 1536))
+131it [10:54,  5.09s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_3_4009/Patient_3_4009__Subregion_3.npz ((65, 1536))
+132it [10:59,  5.21s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_3_4009/Patient_3_4009__Subregion_4.npz ((53, 1536))
+133it [11:04,  5.05s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_3_4009/Patient_3_4009__Subregion_5.npz ((47, 1536))
+134it [11:09,  4.99s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_3_4009/Patient_3_4009__Subregion_6.npz ((49, 1536))
+135it [11:17,  5.89s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_3_4009/Patient_3_4009__Subregion_7.npz ((114, 1536))
+136it [11:20,  5.19s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_3_4009/Patient_3_4009__Subregion_8.npz ((28, 1536))
+137it [11:23,  4.43s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_500_501009/Patient_500_501009__Subregion_10.npz ((16, 1536))
+138it [11:25,  3.71s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_500_501009/Patient_500_501009__Subregion_2.npz ((13, 1536))
+139it [11:29,  3.65s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_500_501009/Patient_500_501009__Subregion_4.npz ((23, 1536))
+140it [11:29,  2.78s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_500_501009/Patient_500_501009__Subregion_5.npz ((3, 1536))
+141it [11:33,  2.97s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_500_501009/Patient_500_501009__Subregion_6.npz ((25, 1536))
+142it [11:34,  2.33s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_500_501009/Patient_500_501009__Subregion_7.npz ((5, 1536))
+143it [11:38,  2.95s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_500_501009/Patient_500_501009__Subregion_8.npz ((34, 1536))
+144it [11:39,  2.28s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_500_501009/Patient_500_501009__Subregion_9.npz ((4, 1536))
+145it [11:43,  2.96s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_8_9009/Patient_8_9009__Subregion_0.npz ((31, 1536))
+146it [11:48,  3.52s/it]Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_8_9009/Patient_8_9009__Subregion_1.npz ((37, 1536))
+147it [11:51,  3.27s/it]147it [11:51,  4.84s/it]
+Wrote /work/bolelli_synthetic/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2/Patient_8_9009/Patient_8_9009__Subregion_2.npz ((21, 1536))
+[2026-02-05 16:16:05] Job val_feature_extraction_her2 finished.
+Runtime: 811 seconds (13 min)
