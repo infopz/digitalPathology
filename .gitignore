@@ -10,3 +10,4 @@ wheels/
 .venv
 
 reggio_data
+data
