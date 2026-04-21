@@ -4,9 +4,19 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import StratifiedGroupKFold
 
 
-BAG_ID_PATTERN = re.compile(r"^RE_I_25_(\d+_\d+)_([A-Za-z0-9]+)$")
+BAG_ID_PATTERN = re.compile(r"^RE_I_25_(\d+)_\d+_([A-Za-z]+)$")
+
+DEFAULT_FEATURES_DIR = Path("data/uni_features_RE_common")
+DEFAULT_LABELS_CSV = Path("data/alice/bag_labels.csv")
+DEFAULT_OUTPUT_DIR = Path("aiflopp/manifest")
+
+DEFAULT_TRAIN_RATIO = 0.7
+DEFAULT_VAL_RATIO = 0.15
+DEFAULT_TEST_RATIO = 0.15
+DEFAULT_SEED = 42
 
 
 def parse_args() -> argparse.Namespace:
@@ -19,35 +29,29 @@ def parse_args() -> argparse.Namespace:
 	parser.add_argument(
 		"--features-dir",
 		type=Path,
-		default=Path("data/uni_features_RE_common"),
+		default=DEFAULT_FEATURES_DIR,
 		help="Directory containing one NPZ file per bag.",
 	)
 	parser.add_argument(
 		"--labels-csv",
 		type=Path,
-		default=Path("data/alice/bag_labels.csv"),
+		default=DEFAULT_LABELS_CSV,
 		help="CSV with columns bag_id,label.",
 	)
 	parser.add_argument(
 		"--output-dir",
 		type=Path,
-		default=Path("data"),
+		default=DEFAULT_OUTPUT_DIR,
 		help="Directory where train/val/test manifest CSV files are written.",
 	)
-	parser.add_argument("--train-ratio", type=float, default=0.7)
-	parser.add_argument("--val-ratio", type=float, default=0.15)
-	parser.add_argument("--test-ratio", type=float, default=0.15)
-	parser.add_argument(
-		"--random-trials",
-		type=int,
-		default=3000,
-		help="Number of random grouped assignments to evaluate.",
-	)
-	parser.add_argument("--seed", type=int, default=7)
+	parser.add_argument("--train-ratio", type=float, default=DEFAULT_TRAIN_RATIO)
+	parser.add_argument("--val-ratio", type=float, default=DEFAULT_VAL_RATIO)
+	parser.add_argument("--test-ratio", type=float, default=DEFAULT_TEST_RATIO)
+	parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
 	return parser.parse_args()
 
 
-def _validate_ratios(train_ratio: float, val_ratio: float, test_ratio: float) -> None:
+def validate_ratios(train_ratio: float, val_ratio: float, test_ratio: float) -> None:
 	if min(train_ratio, val_ratio, test_ratio) <= 0:
 		raise ValueError("All split ratios must be > 0.")
 
@@ -67,7 +71,10 @@ def _parse_bag_id(bag_id: str) -> tuple[str, str]:
 	return match.group(1), match.group(2)
 
 
-def _load_filtered_manifest(labels_csv: Path, features_dir: Path) -> pd.DataFrame:
+def load_filtered_manifest(labels_csv: Path, features_dir: Path) -> pd.DataFrame:
+
+	# Load the label CSV
+
 	labels_df = pd.read_csv(labels_csv)
 	required_cols = {"bag_id", "label"}
 	missing = required_cols - set(labels_df.columns)
@@ -77,6 +84,8 @@ def _load_filtered_manifest(labels_csv: Path, features_dir: Path) -> pd.DataFram
 	if labels_df["bag_id"].duplicated().any():
 		dupes = labels_df.loc[labels_df["bag_id"].duplicated(), "bag_id"].head(5).tolist()
 		raise ValueError(f"Duplicate bag_id values found in labels CSV. Examples: {dupes}")
+
+	# Check the available files and filter the manifest
 
 	available_bags = {path.stem for path in features_dir.glob("*.npz")}
 	if not available_bags:
@@ -88,7 +97,9 @@ def _load_filtered_manifest(labels_csv: Path, features_dir: Path) -> pd.DataFram
 			"No overlap between labels CSV bag_id values and available NPZ files in features-dir."
 		)
 
-	ids = manifest["bag_id"].apply(_parse_bag_id)
+	# Parse the manifest
+
+	ids = manifest["bag_id"].apply(_parse_bag_id) # Extract patient_id and subregion_id
 	manifest["patient_id"] = ids.str[0]
 	manifest["subregion_id"] = ids.str[1]
 	manifest["label"] = manifest["label"].astype(int)
@@ -97,83 +108,94 @@ def _load_filtered_manifest(labels_csv: Path, features_dir: Path) -> pd.DataFram
 	return manifest.sort_values("bag_id").reset_index(drop=True)
 
 
-def _assignment_score(
-	stats_by_patient: pd.DataFrame,
-	assignment: dict[str, str],
-	target_ratios: dict[str, float],
-) -> float:
-	total_bags = int(stats_by_patient["n_bags"].sum())
-	total_pos = int(stats_by_patient["n_pos"].sum())
-	global_pos_ratio = total_pos / total_bags
+def _best_group_stratified_holdout(
+	data: pd.DataFrame,
+	holdout_ratio: float,
+	seed: int,
+) -> tuple[np.ndarray, np.ndarray]:
+	"""Find the best group-stratified holdout split close to target holdout_ratio."""
 
-	score = 0.0
-	for split_name, split_target in target_ratios.items():
-		selected = stats_by_patient[stats_by_patient["patient_id"].map(assignment.get) == split_name]
-		if selected.empty:
-			return 1e9
+	# TODO: capire un attimo meglio il codice qua sotto, ma funziona
 
-		split_bags = int(selected["n_bags"].sum())
-		split_pos = int(selected["n_pos"].sum())
-		split_ratio = split_bags / total_bags
-		split_pos_ratio = split_pos / split_bags
+	if data.empty:
+		raise ValueError("Cannot split an empty dataframe.")
 
-		score += abs(split_ratio - split_target)
-		score += 0.7 * abs(split_pos_ratio - global_pos_ratio)
+	n_patients = data["patient_id"].nunique()
+	if n_patients < 2:
+		raise ValueError("At least 2 patients are required for a grouped holdout split.")
 
-	return score
+	y = data["label"].to_numpy()
+	groups = data["patient_id"].to_numpy()
+	global_pos_ratio = float(data["label"].mean())
+
+	best_train_idx: np.ndarray | None = None
+	best_holdout_idx: np.ndarray | None = None
+	best_score = float("inf")
+
+	max_splits = min(10, n_patients)
+	for n_splits in range(2, max_splits + 1):
+		splitter = StratifiedGroupKFold(
+			n_splits=n_splits,
+			shuffle=True,
+			random_state=seed,
+		)
+		for train_idx, holdout_idx in splitter.split(data, y, groups):
+			if len(train_idx) == 0 or len(holdout_idx) == 0:
+				continue
+
+			ratio = len(holdout_idx) / len(data)
+			holdout_pos_ratio = float(data.iloc[holdout_idx]["label"].mean())
+
+			# Prioritize matching target size, then label balance.
+			score = abs(ratio - holdout_ratio) + 0.5 * abs(holdout_pos_ratio - global_pos_ratio)
+			if score < best_score:
+				best_score = score
+				best_train_idx = train_idx
+				best_holdout_idx = holdout_idx
+
+	if best_train_idx is None or best_holdout_idx is None:
+		raise RuntimeError("Unable to compute a valid StratifiedGroupKFold holdout split.")
+
+	return best_train_idx, best_holdout_idx
 
 
-def _find_best_patient_assignment(
+def find_best_patient_assignment(
 	manifest: pd.DataFrame,
 	train_ratio: float,
 	val_ratio: float,
 	test_ratio: float,
-	random_trials: int,
 	seed: int,
 ) -> dict[str, set[str]]:
-	stats_by_patient = (
-		manifest.groupby("patient_id")
-		.agg(n_bags=("bag_id", "count"), n_pos=("label", "sum"))
-		.reset_index()
-	)
-	patients = stats_by_patient["patient_id"].tolist()
+	patients = manifest["patient_id"].unique().tolist()
 
 	if len(patients) < 3:
 		raise ValueError(
 			"At least 3 patients are required to produce train/val/test splits without leakage."
 		)
 
-	splits = ["train", "val", "test"]
-	split_probs = np.array([train_ratio, val_ratio, test_ratio], dtype=float)
-	split_probs /= split_probs.sum()
-	target_ratios = {"train": train_ratio, "val": val_ratio, "test": test_ratio}
+	train_val_idx, test_idx = _best_group_stratified_holdout(
+		data=manifest,
+		holdout_ratio=test_ratio,
+		seed=seed,
+	)
 
-	rng = np.random.default_rng(seed)
-	best_score = float("inf")
-	best_assignment: dict[str, str] | None = None
+	train_val_df = manifest.iloc[train_val_idx].reset_index(drop=True)
+	val_share_in_train_val = val_ratio / (train_ratio + val_ratio)
 
-	for _ in range(random_trials):
-		shuffled = patients.copy()
-		rng.shuffle(shuffled)
+	train_idx_local, val_idx_local = _best_group_stratified_holdout(
+		data=train_val_df,
+		holdout_ratio=val_share_in_train_val,
+		seed=seed + 1,
+	)
 
-		assignment: dict[str, str] = {}
-		for patient_id, split_name in zip(shuffled[:3], splits):
-			assignment[patient_id] = split_name
-
-		for patient_id in shuffled[3:]:
-			assignment[patient_id] = str(rng.choice(splits, p=split_probs))
-
-		score = _assignment_score(stats_by_patient, assignment, target_ratios)
-		if score < best_score:
-			best_score = score
-			best_assignment = assignment
-
-	if best_assignment is None:
-		raise RuntimeError("Failed to find a valid grouped split assignment.")
+	train_patients = set(train_val_df.iloc[train_idx_local]["patient_id"].unique().tolist())
+	val_patients = set(train_val_df.iloc[val_idx_local]["patient_id"].unique().tolist())
+	test_patients = set(manifest.iloc[test_idx]["patient_id"].unique().tolist())
 
 	split_patients = {
-		split_name: {pid for pid, s in best_assignment.items() if s == split_name}
-		for split_name in splits
+		"train": train_patients,
+		"val": val_patients,
+		"test": test_patients,
 	}
 	return split_patients
 
@@ -207,15 +229,14 @@ def _print_summary(manifest: pd.DataFrame, split_patients: dict[str, set[str]]) 
 
 def main() -> None:
 	args = parse_args()
-	_validate_ratios(args.train_ratio, args.val_ratio, args.test_ratio)
+	validate_ratios(args.train_ratio, args.val_ratio, args.test_ratio)
 
-	manifest = _load_filtered_manifest(args.labels_csv, args.features_dir)
-	split_patients = _find_best_patient_assignment(
+	manifest = load_filtered_manifest(args.labels_csv, args.features_dir)
+	split_patients = find_best_patient_assignment(
 		manifest=manifest,
 		train_ratio=args.train_ratio,
 		val_ratio=args.val_ratio,
 		test_ratio=args.test_ratio,
-		random_trials=args.random_trials,
 		seed=args.seed,
 	)
 

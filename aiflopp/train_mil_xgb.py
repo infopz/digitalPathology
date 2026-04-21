@@ -10,11 +10,11 @@ from xgboost import XGBClassifier
 
 def parse_args() -> argparse.Namespace:
 
-    default_train_maifest = Path("/work/bolelli_synthetic/reggio_data/datasets/ihc4bc/splits_her2/train/manifest.csv")
-    default_val_maifest = Path("/work/bolelli_synthetic/reggio_data/datasets/ihc4bc/splits_her2/val/manifest.csv")
-    default_test_maifest = Path("/work/bolelli_synthetic/reggio_data/datasets/ihc4bc/splits_her2/test/manifest.csv")
+    default_train_maifest = Path("/home/ubuntu/giodir/digitalPathology/aiflopp/manifest/train_manifest.csv")
+    default_val_maifest = Path("/home/ubuntu/giodir/digitalPathology/aiflopp/manifest/val_manifest.csv")
+    default_test_maifest = Path("/home/ubuntu/giodir/digitalPathology/aiflopp/manifest/test_manifest.csv")
 
-    default_features_root = Path("/homes/gcasari/reggio_projects/digital_pathology/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2")
+    default_features_root = Path("data/uni_features_RE_common")
 
     parser = argparse.ArgumentParser(
         description="Train an XGBoost model on pooled subregion features."
@@ -63,11 +63,12 @@ def load_features(manifest: pd.DataFrame, features_root: Path, pooling: str):
     ids: list[str] = []
 
     for _, row in manifest.iterrows():
-        subregion_id = row["subregion_id"]
-        patient_id = row["patient_id"]
+
+        bag_id = row["bag_id"]
+
         label = int(row["label"])
         feature_path = (
-            features_root / str(patient_id) / f"{subregion_id.replace('/', '__')}.npz"
+            features_root / f"{bag_id}.npz"
         )
 
         if not feature_path.exists():
@@ -83,7 +84,7 @@ def load_features(manifest: pd.DataFrame, features_root: Path, pooling: str):
 
         X.append(pooled.astype(np.float32))
         y.append(label)
-        ids.append(subregion_id)
+        ids.append(bag_id)
 
     return np.vstack(X), np.array(y), ids
 
@@ -119,7 +120,7 @@ def main() -> None:
     val_manifest = pd.read_csv(args.val_manifest)
     test_manifest = pd.read_csv(args.test_manifest)
 
-    required_cols = {"subregion_id", "patient_id", "label"}
+    required_cols = {"bag_id", "label"}
     for name, manifest in [
         ("train", train_manifest),
         ("val", val_manifest),

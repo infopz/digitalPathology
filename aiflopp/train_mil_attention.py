@@ -13,17 +13,17 @@ from tqdm import tqdm
 
 def parse_args() -> argparse.Namespace:
     default_train_manifest = Path(
-        "/work/bolelli_synthetic/reggio_data/datasets/ihc4bc/splits_her2/train/manifest.csv"
+        "/home/ubuntu/giodir/digitalPathology/aiflopp/manifest/train_manifest.csv"
     )
     default_val_manifest = Path(
-        "/work/bolelli_synthetic/reggio_data/datasets/ihc4bc/splits_her2/val/manifest.csv"
+        "/home/ubuntu/giodir/digitalPathology/aiflopp/manifest/val_manifest.csv"
     )
     default_test_manifest = Path(
-        "/work/bolelli_synthetic/reggio_data/datasets/ihc4bc/splits_her2/test/manifest.csv"
+        "/home/ubuntu/giodir/digitalPathology/aiflopp/manifest/test_manifest.csv"
     )
 
     default_features_root = Path(
-        "/homes/gcasari/reggio_projects/digital_pathology/reggio_data/datasets/ihc4bc/feat_extracted/uni2_her2"
+        "/home/ubuntu/giodir/digitalPathology/data/uni_features_RE_common"
     )
 
     parser = argparse.ArgumentParser(
@@ -70,7 +70,7 @@ class MILBagDataset(Dataset):
         self.manifest = manifest.reset_index(drop=True)
         self.features_root = features_root
         self.max_bag_size = max_bag_size
-        self.required_cols = {"subregion_id", "patient_id", "label"}
+        self.required_cols = {"bag_id", "label"}
 
         missing = self.required_cols - set(self.manifest.columns)
         if missing:
@@ -94,14 +94,13 @@ class MILBagDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, str]:
         row = self.manifest.iloc[idx]
-        subregion_id = row["subregion_id"]
-        patient_id = row["patient_id"]
+        bag_id = row["bag_id"]
         label = float(row["label"])
 
-        feature_path = self.features_root / str(patient_id) / f"{subregion_id.replace('/', '__')}.npz"
+        feature_path = self.features_root / f"{bag_id}.npz"
         feats = self._load_features(feature_path)
 
-        return torch.from_numpy(feats), torch.tensor(label, dtype=torch.float32), subregion_id
+        return torch.from_numpy(feats), torch.tensor(label, dtype=torch.float32), bag_id
 
 
 def collate_bags(batch: Sequence[Tuple[torch.Tensor, torch.Tensor, str]]):
@@ -186,9 +185,8 @@ def seed_everything(seed: int) -> None:
 def infer_input_dim(manifest: pd.DataFrame, features_root: Path) -> int:
     """Inspect the first bag to deduce feature dimensionality."""
     for _, row in manifest.iterrows():
-        subregion_id = row["subregion_id"]
-        patient_id = row["patient_id"]
-        feature_path = features_root / str(patient_id) / f"{subregion_id.replace('/', '__')}.npz"
+        bag_id = row["bag_id"]
+        feature_path = features_root / f"{bag_id}.npz"
         data = np.load(feature_path, allow_pickle=True)
         feats: np.ndarray = data["features"].astype(np.float32)
         return int(feats.shape[1])
