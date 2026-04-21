@@ -66,10 +66,17 @@ def parse_args() -> argparse.Namespace:
 class MILBagDataset(Dataset):
     """Dataset that returns one bag (subregion) at a time."""
 
-    def __init__(self, manifest: pd.DataFrame, features_root: Path, max_bag_size: int = 0):
+    def __init__(
+        self,
+        manifest: pd.DataFrame,
+        features_root: Path,
+        max_bag_size: int = 0,
+        enable_sampling: bool = True,
+    ):
         self.manifest = manifest.reset_index(drop=True)
         self.features_root = features_root
         self.max_bag_size = max_bag_size
+        self.enable_sampling = enable_sampling
         self.required_cols = {"bag_id", "label"}
 
         missing = self.required_cols - set(self.manifest.columns)
@@ -86,8 +93,7 @@ class MILBagDataset(Dataset):
         feats: np.ndarray = data["features"].astype(np.float32)
 
         # Randomly subsample patches
-        # This can be improved
-        if self.max_bag_size > 0 and len(feats) > self.max_bag_size:
+        if self.enable_sampling and self.max_bag_size > 0 and len(feats) > self.max_bag_size:
             idx = np.random.choice(len(feats), size=self.max_bag_size, replace=False)
             feats = feats[idx]
         return feats
@@ -246,9 +252,24 @@ def main() -> None:
     input_dim = infer_input_dim(train_manifest, args.features_root)
     print(f"Inferred feature dim: {input_dim}")
 
-    train_ds = MILBagDataset(train_manifest, args.features_root, args.max_bag_size)
-    val_ds = MILBagDataset(val_manifest, args.features_root, args.max_bag_size)
-    test_ds = MILBagDataset(test_manifest, args.features_root, args.max_bag_size)
+    train_ds = MILBagDataset(
+        train_manifest,
+        args.features_root,
+        args.max_bag_size,
+        enable_sampling=True,
+    )
+    val_ds = MILBagDataset(
+        val_manifest,
+        args.features_root,
+        args.max_bag_size,
+        enable_sampling=False,
+    )
+    test_ds = MILBagDataset(
+        test_manifest,
+        args.features_root,
+        args.max_bag_size,
+        enable_sampling=False,
+    )
 
     train_loader = DataLoader(
         train_ds,
