@@ -7,7 +7,7 @@ import pandas as pd
 from sklearn.model_selection import StratifiedGroupKFold
 
 
-BAG_ID_PATTERN = re.compile(r"^RE_I_25_(\d+)_\d+_([A-Za-z0-9]+)$")
+BAG_ID_PATTERN = re.compile(r"^RE_I_25_(\d+)_\d+_([A-Za-z]+)$")
 
 DEFAULT_FEATURES_DIR = Path("data/uni_features_RE_common")
 DEFAULT_LABELS_CSV = Path("data/alice/bag_labels.csv")
