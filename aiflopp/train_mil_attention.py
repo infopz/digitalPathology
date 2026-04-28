@@ -1,15 +1,19 @@
 import argparse
-from pathlib import Path
-from typing import List, Sequence, Tuple
 import json
+from pathlib import Path
+import sys
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
 import torch
 from sklearn.metrics import accuracy_score, roc_auc_score
 from torch import nn
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from tqdm import tqdm
+
+from aiflopp.datasets import MILBagDataset, collate_bags
+from aiflopp.models import AVAILABLE_MODEL_TYPES, MODEL_REGISTRY
 
 
 def parse_args() -> argparse.Namespace:
@@ -46,7 +50,11 @@ def parse_args() -> argparse.Namespace:
 
     # Model hyperparameters
     parser.add_argument(
-        "--model-type", type=str, default="base_mil", help="Type of MIL model to train (default: base_mil)."
+        "--model-type",
+        type=str,
+        choices=AVAILABLE_MODEL_TYPES,
+        default="base_mil",
+        help="Type of MIL model to train.",
     )
     parser.add_argument(
         "--attention-dim", type=int, default=128, help="Hidden size for attention MLP."
@@ -54,13 +62,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--hidden-dim", type=int, default=64, help="Hidden size for final classifier."
     )
+    parser.add_argument("--dropout", type=float, default=0.25)
 
     # Training hyperparameters
     parser.add_argument("--epochs", type=int, default=40)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--lr", type=float, default=1e-3, help="Adam learning rate.")
     parser.add_argument("--weight-decay", type=float, default=1e-4)
-    parser.add_argument("--dropout", type=float, default=0.25)
     parser.add_argument(
         "--max-bag-size",
         type=int,
@@ -76,96 +84,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=7)
     
     return parser.parse_args()
-
-
-class MILBagDataset(Dataset):
-    """Dataset that returns one bag (subregion) at a time."""
-
-    def __init__(
-        self,
-        manifest: pd.DataFrame,
-        features_root: Path,
-        max_bag_size: int = 0,
-        enable_sampling: bool = True,
-    ):
-        self.manifest = manifest.reset_index(drop=True)
-        self.features_root = features_root
-        self.max_bag_size = max_bag_size
-        self.enable_sampling = enable_sampling
-        self.required_cols = {"bag_id", "label"}
-
-        missing = self.required_cols - set(self.manifest.columns)
-        if missing:
-            raise ValueError(f"Manifest missing columns: {missing}")
-
-    def __len__(self) -> int:
-        return len(self.manifest)
-
-    def _load_features(self, feature_path: Path) -> np.ndarray:
-        if not feature_path.exists():
-            raise FileNotFoundError(f"Missing features: {feature_path}")
-        data = np.load(feature_path, allow_pickle=True)
-        feats: np.ndarray = data["features"].astype(np.float32)
-
-        # Randomly subsample patches
-        if self.enable_sampling and self.max_bag_size > 0 and len(feats) > self.max_bag_size:
-            idx = np.random.choice(len(feats), size=self.max_bag_size, replace=False)
-            feats = feats[idx]
-        return feats
-
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, str]:
-        row = self.manifest.iloc[idx]
-        bag_id = row["bag_id"]
-        label = float(row["label"])
-
-        feature_path = self.features_root / f"{bag_id}.npz"
-        feats = self._load_features(feature_path)
-
-        return torch.from_numpy(feats), torch.tensor(label, dtype=torch.float32), bag_id
-
-
-def collate_bags(batch: Sequence[Tuple[torch.Tensor, torch.Tensor, str]]):
-    bags, labels, ids = zip(*batch)
-    return list(bags), torch.stack(labels), list(ids)
-
-
-class AttentionMILBase(nn.Module):
-    def __init__(self, input_dim: int, attention_dim: int, hidden_dim: int, dropout: float):
-        super().__init__()
-
-        # E' la versione piu basic del MIL
-        # W*tan(V*h) come attenzione, quindi una matrice V di peso per ogni patch che porta da una dimension attention_dim
-        # poi W che la porta a 1 (seguita poi dalla softmax nella forward)
-        
-        # TODO: la si potrebbe migliorare con la Gated attention aggiungendo un'altra matrice U 
-        #       e moltiplicando elemento per elemento V*h e U*h prima di passare a W
-        self.attention = nn.Sequential(
-            nn.Linear(input_dim, attention_dim), # V
-            nn.Tanh(),
-            nn.Linear(attention_dim, 1), # W
-        )
-
-        self.classifier = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim, 1),
-        )
-
-    def forward(self, bags: List[torch.Tensor]) -> Tuple[torch.Tensor, List[torch.Tensor]]:
-        logits: list[torch.Tensor] = []
-        attn_weights: list[torch.Tensor] = []
-
-        for bag in bags:
-            scores = self.attention(bag).squeeze(-1)  # (num_patches,)
-            weights = torch.softmax(scores, dim=0)
-            bag_repr = torch.sum(weights.unsqueeze(-1) * bag, dim=0)
-            logit = self.classifier(bag_repr)
-
-            logits.append(logit.squeeze(-1))
-            attn_weights.append(weights)
-
-        return torch.stack(logits), attn_weights
 
 
 @torch.no_grad()
@@ -272,7 +190,12 @@ def train(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader, ar
     return model
 
 
-def save_model_and_metadata(model: nn.Module, output_dir: Path, args: argparse.Namespace) -> None:
+def save_model_and_metadata(
+    model: nn.Module,
+    output_dir: Path,
+    args: argparse.Namespace,
+    model_config: dict,
+) -> None:
     
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -280,16 +203,13 @@ def save_model_and_metadata(model: nn.Module, output_dir: Path, args: argparse.N
     metadata_dict = {
         "model_details": {
             "model_type": args.model_type,
-            "input_dim": args.input_dim,
-            "attention_dim": args.attention_dim,
-            "hidden_dim": args.hidden_dim,
+            **model_config,
         },
         "training_details": {
             "epochs": args.epochs,
             "batch_size": args.batch_size,
             "learning_rate": args.lr,
             "weight_decay": args.weight_decay,
-            "dropout": args.dropout,
             "max_bag_size": args.max_bag_size,
         },
         "data_details": {
@@ -323,6 +243,8 @@ def save_model_metrics(metrics: dict, output_dir: Path) -> None:
 
 def main() -> None:
     args = parse_args()
+    model_entry = MODEL_REGISTRY[args.model_type]
+    model_entry["validate"](args)
     seed_everything(args.seed)
 
     device = torch.device(args.device)
@@ -335,6 +257,8 @@ def main() -> None:
     input_dim = infer_input_dim(train_manifest, args.features_root)
     args.input_dim = input_dim
     print(f"Inferred feature dim: {input_dim}")
+
+    model_config = model_entry["config"](args)
 
     train_ds = MILBagDataset(
         train_manifest,
@@ -380,14 +304,10 @@ def main() -> None:
         drop_last=False,
     )
 
-    # TODO: different model types?
-    model = AttentionMILBase(
-        input_dim=input_dim,
-        attention_dim=args.attention_dim,
-        hidden_dim=args.hidden_dim,
-        dropout=args.dropout,
-    ).to(device)
+    # Build model based on specified model_type
+    model = model_entry["build"](args).to(device)
 
+    # Train model
     model = train(model, train_loader, val_loader, args, device)
 
     # Evaluate final model and save predictions
@@ -399,6 +319,7 @@ def main() -> None:
     print(f"Final val_acc={val_acc:.4f} val_auc={val_auc:.4f}")
     print(f"Final test_acc={test_acc:.4f} test_auc={test_auc:.4f}")
 
+    # Save model and metrics
     metrics = {
         "val_acc": val_acc,
         "val_auc": val_auc,
@@ -406,7 +327,7 @@ def main() -> None:
         "test_auc": test_auc,
     }
     save_model_metrics(metrics, args.output_dir)
-    save_model_and_metadata(model, args.output_dir, args)
+    save_model_and_metadata(model, args.output_dir, args, model_config)
 
 
 if __name__ == "__main__":
