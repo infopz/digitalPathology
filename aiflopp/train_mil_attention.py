@@ -1,8 +1,9 @@
 import argparse
 import json
+from datetime import datetime
 from pathlib import Path
-import sys
 from typing import Tuple
+
 
 import numpy as np
 import pandas as pd
@@ -84,6 +85,28 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=7)
     
     return parser.parse_args()
+
+
+def validate_output_dir(path: Path) -> Path:
+    """
+    Ensure output directory exists and is empty, or create a timestamped directory to avoid overwriting.
+    Returns the path that should be used for output.
+    """
+
+    if not path.exists() or not any(path.iterdir()):
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamped_path = path.parent / f"{path.stem}_{timestamp}"
+    print(
+        f"Output directory {path} already exists and is not empty. "
+        f"Using {timestamped_path} instead to avoid overwriting."
+    )
+    timestamped_path.mkdir(parents=True, exist_ok=True)
+
+    return timestamped_path
+    
 
 
 @torch.no_grad()
@@ -243,6 +266,9 @@ def save_model_metrics(metrics: dict, output_dir: Path) -> None:
 
 def main() -> None:
     args = parse_args()
+    args.output_dir = validate_output_dir(args.output_dir)
+
+    # Select model_type and validate args
     model_entry = MODEL_REGISTRY[args.model_type]
     model_entry["validate"](args)
     seed_everything(args.seed)
@@ -258,6 +284,7 @@ def main() -> None:
     args.input_dim = input_dim
     print(f"Inferred feature dim: {input_dim}")
 
+    # Filter args to keep only those used by model initialization
     model_config = model_entry["config"](args)
 
     train_ds = MILBagDataset(
