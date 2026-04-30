@@ -14,6 +14,24 @@ import tqdm
 from torch.utils.data import DataLoader, Dataset
 from typing import Tuple
 
+def parse_patch_filename(patch_path: Path) -> Tuple[str, int, int]:
+    """
+    Given a patch filename like "RE-I_25_16299_1_K_1_130911_prostate_HNE_100352_10240.png"
+    extract the original filename and the coordinates of the patch (x, y).
+    """
+    filename_parts = patch_path.stem.split("_")
+    if len(filename_parts) < 3:
+        raise ValueError(f"Invalid patch filename format: {patch_path.name}")
+
+    try:
+        x, y = int(filename_parts[-2]), int(filename_parts[-1])
+    except ValueError:
+        raise ValueError(f"Invalid coordinates in patch filename: {patch_path.name}")
+    
+    original_filename = patch_path.stem[:-len(f"_{x}_{y}")]
+    
+    return original_filename, x, y
+
 
 class PatchDataset(Dataset):
     def __init__(self, bag_folder_path: Path, transform):
@@ -23,7 +41,7 @@ class PatchDataset(Dataset):
     def __len__(self):
         return len(self.patch_paths)
 
-    def __getitem__(self, idx) -> tuple[torch.Tensor, Tuple[int, int]]:
+    def __getitem__(self, idx) -> tuple[torch.Tensor, str, Tuple[int, int]]:
         patch_path = self.patch_paths[idx]
 
         # Load image patch
@@ -31,11 +49,10 @@ class PatchDataset(Dataset):
         patch_image = Image.fromarray(patch_array)
 
         # Extract the coordinates from the patch name
-        filename_parts = patch_path.stem.split("_")
-        x, y = int(filename_parts[-2]), int(filename_parts[-1])
+        wsi_name, x, y = parse_patch_filename(patch_path)
         coords = (x, y)
 
-        return self.transform(patch_image), coords
+        return self.transform(patch_image), wsi_name, coords
     
 
 def load_uni_model(model_path: str, device: torch.device):
@@ -74,7 +91,7 @@ def load_uni_model(model_path: str, device: torch.device):
     return model, transform
 
 
-def extract_features_from_wsi(model, transform, device: torch.device, bag_path: Path, batch_size: int) -> (np.ndarray, np.ndarray):
+def extract_features_from_wsi(model, transform, device: torch.device, bag_path: Path, batch_size: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     # This function extracts the features from the WSI image using the model and transform.
     # It returns the features and the coords of each patch.
 
@@ -88,6 +105,7 @@ def extract_features_from_wsi(model, transform, device: torch.device, bag_path: 
     print(f"Processing {bag_path.stem}...")
 
     bag_features = []
+    bag_wsi_names = []
     bag_coords = []
 
     dataset = PatchDataset(bag_folder_path=bag_path, transform=transform)
@@ -97,15 +115,16 @@ def extract_features_from_wsi(model, transform, device: torch.device, bag_path: 
                             num_workers=3,
                             pin_memory=True,
                             prefetch_factor=4,
-                            collate_fn=lambda x: (torch.stack([item[0] for item in x]), [item[1] for item in x]))
+                            collate_fn=lambda x: (torch.stack([item[0] for item in x]), [item[1] for item in x], [item[2] for item in x]))
 
 
     with torch.no_grad():
-        for batch_patches, batch_coords in tqdm.tqdm(dataloader, desc="Extracting features", total=len(dataloader)):
+        for batch_patches, batch_wsi_names, batch_coords in tqdm.tqdm(dataloader, desc="Extracting features", total=len(dataloader)):
             batch_patches = batch_patches.to(device)
 
             batch_feats = model(batch_patches).cpu().numpy()
             bag_features.append(batch_feats)
+            bag_wsi_names.extend(batch_wsi_names)
             bag_coords.extend(batch_coords)
 
     features = np.concatenate(bag_features, axis=0)
@@ -115,9 +134,14 @@ def extract_features_from_wsi(model, transform, device: torch.device, bag_path: 
         coords.extend(batch_coords)
     coords = np.array(coords)
 
+    wsi_names = []
+    for batch_wsi_names in bag_wsi_names:
+        wsi_names.extend(batch_wsi_names)
+    wsi_names = np.array(wsi_names)
+
     print(f"Extracted {features.shape[0]} features from {bag_path.name}")
 
-    return features, coords
+    return features, wsi_names, coords
 
 
 def main(input_folder: Path, output_folder: Path, uni_weights_path: Path, batch_size: int = 32):
@@ -141,9 +165,9 @@ def main(input_folder: Path, output_folder: Path, uni_weights_path: Path, batch_
             print(f"Skipping {bag_name}: features already exist.")
             continue
 
-        feature_data, coords = extract_features_from_wsi(model=model, transform=transform, device=device, bag_path=bag_folder, batch_size=batch_size)
+        feature_data, wsi_names, coords = extract_features_from_wsi(model=model, transform=transform, device=device, bag_path=bag_folder, batch_size=batch_size)
 
-        np.savez(feature_output_path, features=feature_data, coords=coords)
+        np.savez(feature_output_path, features=feature_data, wsi_names=wsi_names, coords=coords)
         print(f"Saved features for {bag_name} to {feature_output_path}")
 
 
