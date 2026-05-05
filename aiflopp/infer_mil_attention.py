@@ -23,7 +23,7 @@ def parse_args() -> argparse.Namespace:
         "/home/ubuntu/giodir/digitalPathology/manifests/afpp_manifest_base/test_manifest.csv"
     )
     default_features_root = Path(
-        "/home/ubuntu/giodir/digitalPathology/data/uni_features_RE_common"
+        "/home/ubuntu/giodir/digitalPathology/data/uni_features_RE_common_w_names/"
     )
     default_output_dir = Path("aiflopp/inference_outputs")
 
@@ -71,23 +71,30 @@ def save_metrics(metrics: dict, output_dir: Path) -> None:
         json.dump(metrics, f, indent=4)
 
 
-def load_coords(feature_path: Path) -> np.ndarray:
+def load_patches_metadata(feature_path: Path) -> tuple[np.ndarray, np.ndarray]:
     """
-    Load patch coordinates from the feature file. Supports both flattened and 2D formats.
+    Load patch wsi_names and coordinates from the feature file. Supports both flattened and 2D formats.
     """
 
     data = np.load(feature_path, allow_pickle=True)
-    if "coords" not in data.files:
-        raise KeyError(f"Feature file does not contain coords: {feature_path}")
+    if "coords" not in data.files or "wsi_names" not in data.files:
+        raise KeyError(f"Feature file does not contain required fields: {feature_path}")
 
     coords = np.asarray(data["coords"])
+    wsi_names = np.asarray(data["wsi_names"])
+
     if coords.ndim == 1:
         if len(coords) % 2 != 0:
             raise ValueError(f"Invalid flattened coords in {feature_path}")
         coords = coords.reshape(-1, 2)
     elif coords.ndim != 2 or coords.shape[1] != 2:
         raise ValueError(f"Unsupported coords shape {coords.shape} in {feature_path}")
-    return coords.astype(int)
+
+    # Validate wsi_names length matches coords
+    if len(wsi_names) != coords.shape[0]:
+        raise ValueError(f"Mismatch between coords and wsi_names lengths in {feature_path}")
+    
+    return coords.astype(int), wsi_names
 
 
 def save_attention_scores(
@@ -99,20 +106,24 @@ def save_attention_scores(
     
     # Re-loads the features files to get the patch coords
     feature_path = features_root / f"{bag_id}.npz"
-    coords = load_coords(feature_path)
+    coords, wsi_names = load_patches_metadata(feature_path)
     weights = attention_weights.detach().cpu().numpy()
 
     if len(coords) != len(weights):
         raise ValueError(
-            f"Coords/features length mismatch for {bag_id}: coords={len(coords)} attention={len(weights)}"
+            f"metadata/features length mismatch for {bag_id}: metadata={len(coords)} attention={len(weights)}"
         )
 
-    # Create a DataFrame with patch_id, x, y, and attention_score columns
-    patch_ids = [f"patch_{int(x)}_{int(y)}" for x, y in coords]
+    # Include wsi_name in patch_id because the same coordinates can appear across WSIs.
+    patch_ids = [
+        f"{str(wsi_name)}__patch_{int(x)}_{int(y)}"
+        for wsi_name, (x, y) in zip(wsi_names, coords)
+    ]
     attention_df = pd.DataFrame(
         {
             "bag_id": bag_id,
             "patch_id": patch_ids,
+            "wsi_name": wsi_names,
             "x": coords[:, 0],
             "y": coords[:, 1],
             "attention_score": weights,
