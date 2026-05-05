@@ -32,6 +32,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--wsi-dir", type=Path, default=default_wsi_dir)
     parser.add_argument("--attention-dir", type=Path, default=default_attention_dir)
     parser.add_argument("--output-path", type=Path, default=default_output_path)
+
+    parser.add_argument("--plot-outlines", action="store_true", help="Whether to plot patch outlines on the heatmap.")
+
     return parser.parse_args()
 
 
@@ -78,7 +81,7 @@ def load_attention_scores(attention_dir: Path, bag_id: str) -> pd.DataFrame:
     return attention_df
 
 
-def build_overlay(slide: openslide.OpenSlide, attention_df: pd.DataFrame) -> Image.Image:
+def build_overlay(slide: openslide.OpenSlide, attention_df: pd.DataFrame, plot_outlines: bool) -> Image.Image:
 
     # Compute expected heatmap dimensions
     width, height = slide.dimensions
@@ -93,8 +96,10 @@ def build_overlay(slide: openslide.OpenSlide, attention_df: pd.DataFrame) -> Ima
     scale_x = actual_thumb_width / width
     scale_y = actual_thumb_height / height
 
-    # Initialize the heatmap
+    # Initialize the heatmap and the contour mask
     heatmap = np.zeros((actual_thumb_height, actual_thumb_width), dtype=np.float32)
+    if plot_outlines:
+        contour_map = np.zeros((actual_thumb_height, actual_thumb_width), dtype=np.float32)
 
     for row in attention_df.itertuples(index=False):
         # Map patch coords to thumbnail
@@ -106,6 +111,13 @@ def build_overlay(slide: openslide.OpenSlide, attention_df: pd.DataFrame) -> Ima
         # Apply the color to the heatmap
         heatmap[y0:y1, x0:x1] = np.maximum(heatmap[y0:y1, x0:x1], float(row.attention_score))
 
+        # Save patch outline
+        if plot_outlines:
+            contour_map[y0:y1, x0] = 1.0
+            contour_map[y0:y1, x1 - 1] = 1.0
+            contour_map[y0, x0:x1] = 1.0
+            contour_map[y1 - 1, x0:x1] = 1.0
+
     # Normalize the heatmap to [0, 1] range
     if float(heatmap.max()) > 0.0:
         normalized_heatmap = heatmap / float(heatmap.max())
@@ -116,6 +128,8 @@ def build_overlay(slide: openslide.OpenSlide, attention_df: pd.DataFrame) -> Ima
     heatmap_rgb = colormaps["inferno"](normalized_heatmap)[..., :3].astype(np.float32) * 255.0
     alpha = (normalized_heatmap[..., None] * 0.65).astype(np.float32)
     overlay = thumb_array * (1.0 - alpha) + heatmap_rgb * alpha
+    if plot_outlines:
+        overlay[contour_map > 0] = 0.0
     
     return Image.fromarray(np.clip(overlay, 0, 255).astype(np.uint8))
 
@@ -159,7 +173,7 @@ def main() -> None:
         # Build the heatmap overlay
         try:
             print("Building heatmap overlay...")
-            overlay = build_overlay(slide, subset)
+            overlay = build_overlay(slide, subset, plot_outlines=args.plot_outlines)
         finally:
             slide.close()
 
