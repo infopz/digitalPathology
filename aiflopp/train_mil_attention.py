@@ -8,7 +8,14 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 import torch
-from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.metrics import (
+    accuracy_score,
+    balanced_accuracy_score,
+    confusion_matrix,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -110,7 +117,12 @@ def validate_output_dir(path: Path) -> Path:
 
 
 @torch.no_grad()
-def evaluate(model: nn.Module, loader: DataLoader, device: torch.device, output_csv_path: Path = None) -> Tuple[float, float]:
+def evaluate(
+    model: nn.Module,
+    loader: DataLoader,
+    device: torch.device,
+    output_csv_path: Path = None,
+) -> dict:
     model.eval()
 
     all_bag_ids: list[str] = []
@@ -133,10 +145,23 @@ def evaluate(model: nn.Module, loader: DataLoader, device: torch.device, output_
     y_pred = (y_prob >= 0.5).astype(int)
 
     acc = accuracy_score(y_true, y_pred)
+    precision = precision_score(y_true, y_pred, zero_division=0)
+    recall = recall_score(y_true, y_pred, zero_division=0)
+    balanced_acc = balanced_accuracy_score(y_true, y_pred)
+    cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
     try:
         auc = roc_auc_score(y_true, y_prob)
     except ValueError:
         auc = float("nan")
+
+    metrics = {
+        "acc": float(acc),
+        "precision": float(precision),
+        "recall": float(recall),
+        "balanced_acc": float(balanced_acc),
+        "auc": float(auc),
+        "confusion_matrix": cm.tolist(),
+    }
 
     # Optionally save predictions for error analysis
     if output_csv_path is not None:
@@ -153,7 +178,27 @@ def evaluate(model: nn.Module, loader: DataLoader, device: torch.device, output_
         
         print(f"Saved predictions to {output_csv_path}")
     
-    return acc, auc
+    return metrics
+
+
+def compute_pos_weight(train_manifest: pd.DataFrame, device: torch.device) -> torch.Tensor:
+    # Compute the labels distribution to calculate pos_weight for BCEWithLogitsLoss
+    
+    label_counts = train_manifest["label"].value_counts().to_dict()
+    n_pos = int(label_counts.get(1, 0))
+    n_neg = int(label_counts.get(0, 0))
+
+    if n_pos == 0:
+        raise ValueError("Training manifest has no positive bags; cannot compute pos_weight.")
+    if n_neg == 0:
+        raise ValueError("Training manifest has no negative bags; cannot compute pos_weight.")
+
+    pos_weight = n_neg / n_pos
+    print(
+        f"Training class distribution: negatives={n_neg}, positives={n_pos}, "
+        f"pos_weight={pos_weight:.4f}"
+    )
+    return torch.tensor(pos_weight, dtype=torch.float32, device=device)
 
 
 def seed_everything(seed: int) -> None:
@@ -174,13 +219,21 @@ def infer_input_dim(manifest: pd.DataFrame, features_root: Path) -> int:
     raise RuntimeError("Empty manifest; cannot infer feature dimensionality.")
 
 
-def train(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader, args: argparse.Namespace, device: torch.device):
-    criterion = nn.BCEWithLogitsLoss()
+def train(
+    model: nn.Module,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    args: argparse.Namespace,
+    device: torch.device,
+    pos_weight: torch.Tensor,
+    best_metric = "balanced_acc",
+):
+    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     optimizer = torch.optim.Adam(
         model.parameters(), lr=args.lr, weight_decay=args.weight_decay
     )
 
-    best_val_auc = -float("inf")
+    best_val = -float("inf")
     best_state = None
 
     for epoch in range(1, args.epochs + 1):
@@ -201,11 +254,15 @@ def train(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader, ar
             epoch_loss += loss.item() * len(bags)
 
         avg_loss = epoch_loss / len(train_loader.dataset)
-        val_acc, val_auc = evaluate(model, val_loader, device)
-        print(f"Epoch {epoch}: loss={avg_loss:.4f} val_acc={val_acc:.4f} val_auc={val_auc:.4f}")
+        val_metrics = evaluate(model, val_loader, device)
+        print(
+            f"Epoch {epoch}: loss={avg_loss:.4f} "
+            f"val_rec={val_metrics['recall']:.4f} "
+            f"val_b_ac={val_metrics['balanced_acc']:.4f} "
+        )
 
-        if val_auc > best_val_auc:
-            best_val_auc = val_auc
+        if val_metrics[best_metric] > best_val:
+            best_val = val_metrics[best_metric]
             best_state = {k: v.cpu() for k, v in model.state_dict().items()}
 
     if best_state is not None:
@@ -234,6 +291,7 @@ def save_model_and_metadata(
             "learning_rate": args.lr,
             "weight_decay": args.weight_decay,
             "max_bag_size": args.max_bag_size,
+            "pos_weight": args.pos_weight,
         },
         "data_details": {
             "train_manifest": str(args.train_manifest),
@@ -283,6 +341,8 @@ def main() -> None:
     input_dim = infer_input_dim(train_manifest, args.features_root)
     args.input_dim = input_dim
     print(f"Inferred feature dim: {input_dim}")
+    pos_weight = compute_pos_weight(train_manifest, device)
+    args.pos_weight = float(pos_weight.item())
 
     # Filter args to keep only those used by model initialization
     model_config = model_entry["config"](args)
@@ -335,23 +395,35 @@ def main() -> None:
     model = model_entry["build"](args).to(device)
 
     # Train model
-    model = train(model, train_loader, val_loader, args, device)
+    model = train(model, train_loader, val_loader, args, device, pos_weight)
 
     # Evaluate final model and save predictions
     val_csv_path = args.output_dir / "val_predictions.csv"
     test_csv_path = args.output_dir / "test_predictions.csv"
-    val_acc, val_auc = evaluate(model, val_loader, device, output_csv_path=val_csv_path)
-    test_acc, test_auc = evaluate(model, test_loader, device, output_csv_path=test_csv_path)
+    val_metrics = evaluate(model, val_loader, device, output_csv_path=val_csv_path)
+    test_metrics = evaluate(model, test_loader, device, output_csv_path=test_csv_path)
 
-    print(f"Final val_acc={val_acc:.4f} val_auc={val_auc:.4f}")
-    print(f"Final test_acc={test_acc:.4f} test_auc={test_auc:.4f}")
+    print(
+        f"Final val_acc={val_metrics['acc']:.4f} "
+        f"val_precision={val_metrics['precision']:.4f} "
+        f"val_recall={val_metrics['recall']:.4f} "
+        f"val_bal_acc={val_metrics['balanced_acc']:.4f} "
+        f"val_auc={val_metrics['auc']:.4f}"
+    )
+    print(f"Final val_confusion_matrix={val_metrics['confusion_matrix']}")
+    print(
+        f"Final test_acc={test_metrics['acc']:.4f} "
+        f"test_precision={test_metrics['precision']:.4f} "
+        f"test_recall={test_metrics['recall']:.4f} "
+        f"test_bal_acc={test_metrics['balanced_acc']:.4f} "
+        f"test_auc={test_metrics['auc']:.4f}"
+    )
+    print(f"Final test_confusion_matrix={test_metrics['confusion_matrix']}")
 
     # Save model and metrics
     metrics = {
-        "val_acc": val_acc,
-        "val_auc": val_auc,
-        "test_acc": test_acc,
-        "test_auc": test_auc,
+        "val": val_metrics,
+        "test": test_metrics,
     }
     save_model_metrics(metrics, args.output_dir)
     save_model_and_metadata(model, args.output_dir, args, model_config)

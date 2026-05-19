@@ -9,7 +9,7 @@ from sklearn.model_selection import StratifiedGroupKFold
 
 BAG_ID_PATTERN = re.compile(r"^RE_I_25_(\d+)_\d+_([A-Za-z]+)$")
 
-DEFAULT_FEATURES_DIR = Path("data/uni_features_RE_common")
+DEFAULT_FEATURES_DIR = Path("data/uni_features_RE_common_w_names")
 DEFAULT_LABELS_CSV = Path("data/alice/bag_labels.csv")
 DEFAULT_OUTPUT_DIR = Path("aiflopp/manifest")
 
@@ -84,6 +84,9 @@ def load_filtered_manifest(labels_csv: Path, features_dir: Path) -> pd.DataFrame
 	if labels_df["bag_id"].duplicated().any():
 		dupes = labels_df.loc[labels_df["bag_id"].duplicated(), "bag_id"].head(5).tolist()
 		raise ValueError(f"Duplicate bag_id values found in labels CSV. Examples: {dupes}")
+
+	# Remove rows with missing values (for those bag_id without label)
+	labels_df = labels_df.dropna(subset=["bag_id", "label"])
 
 	# Check the available files and filter the manifest
 
