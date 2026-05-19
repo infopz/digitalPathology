@@ -2,9 +2,6 @@ import argparse
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Tuple
-
-
 import numpy as np
 import pandas as pd
 import torch
@@ -12,6 +9,7 @@ from sklearn.metrics import (
     accuracy_score,
     balanced_accuracy_score,
     confusion_matrix,
+    fbeta_score,
     precision_score,
     recall_score,
     roc_auc_score,
@@ -73,7 +71,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dropout", type=float, default=0.25)
 
     # Training hyperparameters
-    parser.add_argument("--epochs", type=int, default=40)
+    parser.add_argument("--epochs", type=int, default=15)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--lr", type=float, default=1e-3, help="Adam learning rate.")
     parser.add_argument("--weight-decay", type=float, default=1e-4)
@@ -117,12 +115,11 @@ def validate_output_dir(path: Path) -> Path:
 
 
 @torch.no_grad()
-def evaluate(
+def collect_predictions(
     model: nn.Module,
     loader: DataLoader,
     device: torch.device,
-    output_csv_path: Path = None,
-) -> dict:
+) -> tuple[list[str], np.ndarray, np.ndarray]:
     model.eval()
 
     all_bag_ids: list[str] = []
@@ -140,13 +137,20 @@ def evaluate(
         all_probs.extend(probs.cpu().numpy().tolist())
         all_labels.extend(labels.cpu().numpy().astype(int).tolist())
 
-    y_true = np.array(all_labels)
-    y_prob = np.array(all_probs)
-    y_pred = (y_prob >= 0.5).astype(int)
+    return all_bag_ids, np.array(all_labels), np.array(all_probs)
+
+
+def compute_metrics(
+    y_true: np.ndarray,
+    y_prob: np.ndarray,
+    threshold: float = 0.5,
+) -> dict:
+    y_pred = (y_prob >= threshold).astype(int)
 
     acc = accuracy_score(y_true, y_pred)
     precision = precision_score(y_true, y_pred, zero_division=0)
     recall = recall_score(y_true, y_pred, zero_division=0)
+    f2 = fbeta_score(y_true, y_pred, beta=2, zero_division=0)
     balanced_acc = balanced_accuracy_score(y_true, y_pred)
     cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
     try:
@@ -155,29 +159,106 @@ def evaluate(
         auc = float("nan")
 
     metrics = {
+        "threshold": float(threshold),
         "acc": float(acc),
         "precision": float(precision),
         "recall": float(recall),
+        "f2": float(f2),
         "balanced_acc": float(balanced_acc),
         "auc": float(auc),
         "confusion_matrix": cm.tolist(),
     }
 
-    # Optionally save predictions for error analysis
-    if output_csv_path is not None:
+    return metrics
 
-        output_csv_path.parent.mkdir(parents=True, exist_ok=True)
 
-        pred_df = pd.DataFrame({
-            "bag_id": all_bag_ids,
+def search_best_threshold(
+    y_true: np.ndarray,
+    y_prob: np.ndarray,
+    thresholds: np.ndarray | None = None,
+    objective: str = "f2",
+) -> tuple[float, dict, list[dict]]:
+    if thresholds is None:
+        thresholds = np.linspace(0.05, 0.95, 19)
+
+    best_threshold = 0.5
+    best_metrics: dict | None = None
+    all_results: list[dict] = []
+
+    for threshold in thresholds:
+        metrics = compute_metrics(y_true, y_prob, threshold=float(threshold))
+
+        if objective not in metrics:
+            raise ValueError(f"Objective metric '{objective}' not found in computed metrics.")
+
+        all_results.append(metrics)
+
+        if best_metrics is None:
+            best_threshold = float(threshold)
+            best_metrics = metrics
+            continue
+
+        current_score = metrics[objective]
+        best_score = best_metrics[objective]
+        same_score = np.isclose(current_score, best_score)
+
+        # Check the best metric first, than use recall and precision as tie-breakers
+        if current_score > best_score:
+            best_threshold = float(threshold)
+            best_metrics = metrics
+        elif same_score and metrics["recall"] > best_metrics["recall"]:
+            best_threshold = float(threshold)
+            best_metrics = metrics
+        elif (
+            same_score
+            and np.isclose(metrics["recall"], best_metrics["recall"])
+            and metrics["precision"] > best_metrics["precision"]
+        ):
+            best_threshold = float(threshold)
+            best_metrics = metrics
+
+    if best_metrics is None:
+        raise RuntimeError("Threshold search did not evaluate any candidate thresholds.")
+
+    return best_threshold, best_metrics, all_results
+
+
+def save_predictions(
+    bag_ids: list[str],
+    y_true: np.ndarray,
+    y_prob: np.ndarray,
+    threshold: float,
+    output_csv_path: Path,
+) -> None:
+    output_csv_path.parent.mkdir(parents=True, exist_ok=True)
+
+    pred_df = pd.DataFrame(
+        {
+            "bag_id": bag_ids,
             "label": y_true,
             "pred_prob": y_prob,
-            "pred_label": y_pred,
-        })
-        pred_df.to_csv(output_csv_path, index=False)
-        
-        print(f"Saved predictions to {output_csv_path}")
-    
+            "pred_label": (y_prob >= threshold).astype(int),
+        }
+    )
+    pred_df.to_csv(output_csv_path, index=False)
+    print(f"Saved predictions to {output_csv_path}")
+
+
+@torch.no_grad()
+def evaluate(
+    model: nn.Module,
+    loader: DataLoader,
+    device: torch.device,
+    threshold: float = 0.5,
+    output_csv_path: Path = None,
+) -> dict:
+    bag_ids, y_true, y_prob = collect_predictions(model, loader, device)
+    metrics = compute_metrics(y_true, y_prob, threshold=threshold)
+
+    # Optionally save predictions for error analysis
+    if output_csv_path is not None:
+        save_predictions(bag_ids, y_true, y_prob, threshold, output_csv_path)
+
     return metrics
 
 
@@ -226,7 +307,7 @@ def train(
     args: argparse.Namespace,
     device: torch.device,
     pos_weight: torch.Tensor,
-    best_metric = "balanced_acc",
+    best_metric: str = "auc",
 ):
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     optimizer = torch.optim.Adam(
@@ -257,8 +338,9 @@ def train(
         val_metrics = evaluate(model, val_loader, device)
         print(
             f"Epoch {epoch}: loss={avg_loss:.4f} "
-            f"val_rec={val_metrics['recall']:.4f} "
-            f"val_b_ac={val_metrics['balanced_acc']:.4f} "
+            f"val_recall={val_metrics['recall']:.4f} "
+            f"val_f2={val_metrics['f2']:.4f} "
+            f"val_bal_acc={val_metrics['balanced_acc']:.4f} "
         )
 
         if val_metrics[best_metric] > best_val:
@@ -292,6 +374,8 @@ def save_model_and_metadata(
             "weight_decay": args.weight_decay,
             "max_bag_size": args.max_bag_size,
             "pos_weight": args.pos_weight,
+            "threshold_metric": args.threshold_metric,
+            "decision_threshold": args.decision_threshold,
         },
         "data_details": {
             "train_manifest": str(args.train_manifest),
@@ -322,6 +406,20 @@ def save_model_metrics(metrics: dict, output_dir: Path) -> None:
     print(f"Saved evaluation metrics to {metrics_path}")
 
 
+def print_metrics(split_name: str, metrics: dict) -> None:
+    print(f"Final {split_name} metrics:")
+    print(f"  threshold: {metrics['threshold']:.4f}")
+    print(f"  accuracy: {metrics['acc']:.4f}")
+    print(f"  precision: {metrics['precision']:.4f}")
+    print(f"  recall: {metrics['recall']:.4f}")
+    print(f"  f2: {metrics['f2']:.4f}")
+    print(f"  balanced_accuracy: {metrics['balanced_acc']:.4f}")
+    print(f"  auc: {metrics['auc']:.4f}")
+    print("  confusion_matrix:")
+    print(f"    {metrics['confusion_matrix'][0]}")
+    print(f"    {metrics['confusion_matrix'][1]}")
+
+
 def main() -> None:
     args = parse_args()
     args.output_dir = validate_output_dir(args.output_dir)
@@ -343,6 +441,8 @@ def main() -> None:
     print(f"Inferred feature dim: {input_dim}")
     pos_weight = compute_pos_weight(train_manifest, device)
     args.pos_weight = float(pos_weight.item())
+    args.threshold_metric = "f2"
+    args.decision_threshold = 0.5
 
     # Filter args to keep only those used by model initialization
     model_config = model_entry["config"](args)
@@ -397,31 +497,46 @@ def main() -> None:
     # Train model
     model = train(model, train_loader, val_loader, args, device, pos_weight)
 
-    # Evaluate final model and save predictions
-    val_csv_path = args.output_dir / "val_predictions.csv"
-    test_csv_path = args.output_dir / "test_predictions.csv"
-    val_metrics = evaluate(model, val_loader, device, output_csv_path=val_csv_path)
-    test_metrics = evaluate(model, test_loader, device, output_csv_path=test_csv_path)
+    # Tune the threshold on the validation predictions
+    val_bag_ids, val_y_true, val_y_prob = collect_predictions(model, val_loader, device)
+    best_threshold, val_metrics, val_threshold_search = search_best_threshold(
+        val_y_true,
+        val_y_prob,
+        objective=args.threshold_metric,
+    )
+    args.decision_threshold = float(best_threshold)
 
-    print(
-        f"Final val_acc={val_metrics['acc']:.4f} "
-        f"val_precision={val_metrics['precision']:.4f} "
-        f"val_recall={val_metrics['recall']:.4f} "
-        f"val_bal_acc={val_metrics['balanced_acc']:.4f} "
-        f"val_auc={val_metrics['auc']:.4f}"
+    val_csv_path = args.output_dir / "val_predictions.csv"
+    save_predictions(
+        val_bag_ids,
+        val_y_true,
+        val_y_prob,
+        threshold=best_threshold,
+        output_csv_path=val_csv_path,
     )
-    print(f"Final val_confusion_matrix={val_metrics['confusion_matrix']}")
     print(
-        f"Final test_acc={test_metrics['acc']:.4f} "
-        f"test_precision={test_metrics['precision']:.4f} "
-        f"test_recall={test_metrics['recall']:.4f} "
-        f"test_bal_acc={test_metrics['balanced_acc']:.4f} "
-        f"test_auc={test_metrics['auc']:.4f}"
+        f"Selected validation threshold={best_threshold:.4f} "
+        f"using {args.threshold_metric}={val_metrics[args.threshold_metric]:.4f}"
     )
-    print(f"Final test_confusion_matrix={test_metrics['confusion_matrix']}")
+
+    # Evaluate the model on test set using the selected threshold
+    test_csv_path = args.output_dir / "test_predictions.csv"
+    test_metrics = evaluate(
+        model,
+        test_loader,
+        device,
+        threshold=best_threshold,
+        output_csv_path=test_csv_path,
+    )
+
+    print_metrics("val", val_metrics)
+    print_metrics("test", test_metrics)
 
     # Save model and metrics
     metrics = {
+        "decision_threshold": best_threshold,
+        "threshold_metric": args.threshold_metric,
+        "val_threshold_search": val_threshold_search,
         "val": val_metrics,
         "test": test_metrics,
     }
