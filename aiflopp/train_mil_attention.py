@@ -19,24 +19,33 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from aiflopp.datasets import MILBagDataset, collate_bags
+from aiflopp.feature_utils import (
+    AVAILABLE_FEATURE_MODES,
+    HandcraftedFeatureScaler,
+    fit_handcrafted_scaler,
+    infer_input_dim,
+)
 from aiflopp.models import AVAILABLE_MODEL_TYPES, MODEL_REGISTRY
 
 
 def parse_args() -> argparse.Namespace:
     default_train_manifest = Path(
-        "/home/ubuntu/giodir/digitalPathology/manifests/afpp_manifest_base/train_manifest.csv"
+        "/home/ubuntu/giodir/digitalPathology/manifests/afpp_manifest_cad_diff_binary/train_manifest.csv"
     )
     default_val_manifest = Path(
-        "/home/ubuntu/giodir/digitalPathology/manifests/afpp_manifest_base/val_manifest.csv"
+        "/home/ubuntu/giodir/digitalPathology/manifests/afpp_manifest_cad_diff_binary/val_manifest.csv"
     )
     default_test_manifest = Path(
-        "/home/ubuntu/giodir/digitalPathology/manifests/afpp_manifest_base/test_manifest.csv"
+        "/home/ubuntu/giodir/digitalPathology/manifests/afpp_manifest_cad_diff_binary/test_manifest.csv"
     )
 
     default_features_root = Path(
-        "/home/ubuntu/giodir/digitalPathology/data/uni_features_RE_common"
+        "/home/ubuntu/giodir/digitalPathology/data/uni_features_RE_common_w_names"
     )
-    default_output_dir = Path("aiflopp/outputs")
+    default_handcrafted_features_root = Path(
+        "/home/ubuntu/giodir/digitalPathology/data/ali_handcraft_RE_common_w_names"
+    )
+    default_output_dir = Path("aiflopp/outputs_cad_dis_hand/deep_only")
 
     parser = argparse.ArgumentParser(
         description="Train a MIL attention model on subregion patch features."
@@ -50,7 +59,13 @@ def parse_args() -> argparse.Namespace:
         "--features-root",
         type=Path,
         default=default_features_root,
-        help="Root folder containing per-patient feature npz files.",
+        help="Root folder containing deep per-bag feature npz files.",
+    )
+    parser.add_argument(
+        "--handcrafted-features-root",
+        type=Path,
+        default=default_handcrafted_features_root,
+        help="Optional root folder containing handcrafted per-bag feature npz files.",
     )
     parser.add_argument("--output-dir", type=Path, default=default_output_dir, help="Directory to save model checkpoints and logs.")
 
@@ -69,6 +84,13 @@ def parse_args() -> argparse.Namespace:
         "--hidden-dim", type=int, default=64, help="Hidden size for final classifier."
     )
     parser.add_argument("--dropout", type=float, default=0.25)
+    parser.add_argument(
+        "--feature-mode",
+        type=str,
+        choices=AVAILABLE_FEATURE_MODES,
+        default="deep",
+        help="Which feature source to use: deep, handcrafted, or concat.",
+    )
 
     # Training hyperparameters
     parser.add_argument("--epochs", type=int, default=15)
@@ -88,6 +110,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument(
+        "--threshold-metric",
+        type=str,
+        choices=("acc", "precision", "recall", "f2", "balanced_acc"),
+        default="balanced_acc",
+        help="Validation metric used to choose the final decision threshold.",
+    )
     
     return parser.parse_args()
 
@@ -110,8 +139,7 @@ def validate_output_dir(path: Path) -> Path:
     )
     timestamped_path.mkdir(parents=True, exist_ok=True)
 
-    return timestamped_path
-    
+    return timestamped_path     
 
 
 @torch.no_grad()
@@ -120,13 +148,16 @@ def collect_predictions(
     loader: DataLoader,
     device: torch.device,
 ) -> tuple[list[str], np.ndarray, np.ndarray]:
+    """
+    Run the model on the given DataLoader
+    """
     model.eval()
 
     all_bag_ids: list[str] = []
     all_probs: list[float] = []
     all_labels: list[int] = []
 
-    for bags, labels, bag_ids in loader:
+    for bags, labels, bag_ids, _ in loader:
         bags = [b.to(device) for b in bags]
         labels = labels.to(device)
 
@@ -289,17 +320,6 @@ def seed_everything(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def infer_input_dim(manifest: pd.DataFrame, features_root: Path) -> int:
-    """Inspect the first bag to deduce feature dimensionality."""
-    for _, row in manifest.iterrows():
-        bag_id = row["bag_id"]
-        feature_path = features_root / f"{bag_id}.npz"
-        data = np.load(feature_path, allow_pickle=True)
-        feats: np.ndarray = data["features"].astype(np.float32)
-        return int(feats.shape[1])
-    raise RuntimeError("Empty manifest; cannot infer feature dimensionality.")
-
-
 def train(
     model: nn.Module,
     train_loader: DataLoader,
@@ -316,12 +336,13 @@ def train(
 
     best_val = -float("inf")
     best_state = None
+    best_epoch = -1
 
     for epoch in range(1, args.epochs + 1):
         model.train()
         epoch_loss = 0.0
 
-        for bags, labels, _ in tqdm(train_loader, desc=f"Epoch {epoch}"):
+        for bags, labels, _, _ in tqdm(train_loader, desc=f"Epoch {epoch}"):
             bags = [b.to(device) for b in bags]
             labels = labels.to(device)
 
@@ -339,15 +360,17 @@ def train(
         print(
             f"Epoch {epoch}: loss={avg_loss:.4f} "
             f"val_recall={val_metrics['recall']:.4f} "
-            f"val_f2={val_metrics['f2']:.4f} "
             f"val_bal_acc={val_metrics['balanced_acc']:.4f} "
+            f"val_auc={val_metrics['auc']:.4f} "
         )
 
         if val_metrics[best_metric] > best_val:
             best_val = val_metrics[best_metric]
             best_state = {k: v.cpu() for k, v in model.state_dict().items()}
+            best_epoch = epoch
 
     if best_state is not None:
+        print(f"Best validation epoch {best_epoch} with {best_metric}: {best_val:.4f}. Loading best model state.")
         model.load_state_dict(best_state)
     return model
 
@@ -357,6 +380,7 @@ def save_model_and_metadata(
     output_dir: Path,
     args: argparse.Namespace,
     model_config: dict,
+    handcrafted_scaler: HandcraftedFeatureScaler | None,
 ) -> None:
     
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -382,6 +406,15 @@ def save_model_and_metadata(
             "val_manifest": str(args.val_manifest),
             "test_manifest": str(args.test_manifest),
             "features_root": str(args.features_root),
+            "feature_mode": args.feature_mode,
+            "handcrafted_features_root": (
+                str(args.handcrafted_features_root)
+                if args.handcrafted_features_root is not None
+                else None
+            ),
+            "handcrafted_scaler": (
+                handcrafted_scaler.to_metadata() if handcrafted_scaler is not None else None
+            ),
         }
     }
     metadata_path = output_dir / "metadata.json"
@@ -436,12 +469,29 @@ def main() -> None:
     val_manifest = pd.read_csv(args.val_manifest)
     test_manifest = pd.read_csv(args.test_manifest)
 
-    input_dim = infer_input_dim(train_manifest, args.features_root)
+    # If using handcrafted features, fit a scaler on the training set to apply to all splits
+    handcrafted_scaler = None
+    if args.feature_mode in {"handcrafted", "concat"}:
+        handcrafted_scaler = fit_handcrafted_scaler(
+            train_manifest,
+            args.handcrafted_features_root
+        )
+        print(
+            "Fitted handcrafted scaler "
+            f"for {len(handcrafted_scaler.mean)} handcrafted features"
+        )
+
+    input_dim = infer_input_dim(
+        train_manifest,
+        feature_mode=args.feature_mode,
+        deep_features_root=args.features_root,
+        handcrafted_features_root=args.handcrafted_features_root,
+    )
     args.input_dim = input_dim
+    print(f"Using feature mode: {args.feature_mode}")
     print(f"Inferred feature dim: {input_dim}")
     pos_weight = compute_pos_weight(train_manifest, device)
     args.pos_weight = float(pos_weight.item())
-    args.threshold_metric = "f2"
     args.decision_threshold = 0.5
 
     # Filter args to keep only those used by model initialization
@@ -450,19 +500,28 @@ def main() -> None:
     train_ds = MILBagDataset(
         train_manifest,
         args.features_root,
-        args.max_bag_size,
+        handcrafted_features_root=args.handcrafted_features_root,
+        feature_mode=args.feature_mode,
+        handcrafted_scaler=handcrafted_scaler,
+        max_bag_size=args.max_bag_size,
         enable_sampling=True,
     )
     val_ds = MILBagDataset(
         val_manifest,
         args.features_root,
-        args.max_bag_size,
+        handcrafted_features_root=args.handcrafted_features_root,
+        feature_mode=args.feature_mode,
+        handcrafted_scaler=handcrafted_scaler,
+        max_bag_size=args.max_bag_size,
         enable_sampling=False,
     )
     test_ds = MILBagDataset(
         test_manifest,
         args.features_root,
-        args.max_bag_size,
+        handcrafted_features_root=args.handcrafted_features_root,
+        feature_mode=args.feature_mode,
+        handcrafted_scaler=handcrafted_scaler,
+        max_bag_size=args.max_bag_size,
         enable_sampling=False,
     )
 
@@ -495,7 +554,7 @@ def main() -> None:
     model = model_entry["build"](args).to(device)
 
     # Train model
-    model = train(model, train_loader, val_loader, args, device, pos_weight)
+    model = train(model, train_loader, val_loader, args, device, pos_weight, best_metric=args.threshold_metric)
 
     # Tune the threshold on the validation predictions
     val_bag_ids, val_y_true, val_y_prob = collect_predictions(model, val_loader, device)
@@ -541,7 +600,13 @@ def main() -> None:
         "test": test_metrics,
     }
     save_model_metrics(metrics, args.output_dir)
-    save_model_and_metadata(model, args.output_dir, args, model_config)
+    save_model_and_metadata(
+        model,
+        args.output_dir,
+        args,
+        model_config,
+        handcrafted_scaler=handcrafted_scaler,
+    )
 
 
 if __name__ == "__main__":

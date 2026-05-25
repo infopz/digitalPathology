@@ -11,6 +11,5 @@ wheels/
 
 reggio_data
 data
-aiflopp/outputs
-aiflopp/outputs_inference
+aiflopp/outputs*
 aiflopp/test_heatmap

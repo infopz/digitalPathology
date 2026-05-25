@@ -14,6 +14,7 @@ if __package__ in {None, ""}:
     sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from aiflopp.datasets import MILBagDataset, collate_bags
+from aiflopp.feature_utils import HandcraftedFeatureScaler
 from aiflopp.models import MODEL_REGISTRY
 
 
@@ -22,9 +23,6 @@ def parse_args() -> argparse.Namespace:
     default_manifest = Path(
         "/home/ubuntu/giodir/digitalPathology/manifests/afpp_manifest_base/test_manifest.csv"
     )
-    default_features_root = Path(
-        "/home/ubuntu/giodir/digitalPathology/data/uni_features_RE_common_w_names/"
-    )
     default_output_dir = Path("aiflopp/inference_outputs")
 
     parser = argparse.ArgumentParser(
@@ -32,7 +30,18 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--checkpoint-dir", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, default=default_manifest)
-    parser.add_argument("--features-root", type=Path, default=default_features_root)
+    parser.add_argument(
+        "--features-root",
+        type=Path,
+        default=None,
+        help="Optional override for the deep feature root saved in checkpoint metadata.",
+    )
+    parser.add_argument(
+        "--handcrafted-features-root",
+        type=Path,
+        default=None,
+        help="Optional override for the handcrafted feature root saved in checkpoint metadata.",
+    )
     parser.add_argument("--output-dir", type=Path, default=default_output_dir)
     parser.add_argument("--batch-size", type=int, default=32)
     return parser.parse_args()
@@ -71,42 +80,17 @@ def save_metrics(metrics: dict, output_dir: Path) -> None:
         json.dump(metrics, f, indent=4)
 
 
-def load_patches_metadata(feature_path: Path) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Load patch wsi_names and coordinates from the feature file. Supports both flattened and 2D formats.
-    """
-
-    data = np.load(feature_path, allow_pickle=True)
-    if "coords" not in data.files or "wsi_names" not in data.files:
-        raise KeyError(f"Feature file does not contain required fields: {feature_path}")
-
-    coords = np.asarray(data["coords"])
-    wsi_names = np.asarray(data["wsi_names"])
-
-    if coords.ndim == 1:
-        if len(coords) % 2 != 0:
-            raise ValueError(f"Invalid flattened coords in {feature_path}")
-        coords = coords.reshape(-1, 2)
-    elif coords.ndim != 2 or coords.shape[1] != 2:
-        raise ValueError(f"Unsupported coords shape {coords.shape} in {feature_path}")
-
-    # Validate wsi_names length matches coords
-    if len(wsi_names) != coords.shape[0]:
-        raise ValueError(f"Mismatch between coords and wsi_names lengths in {feature_path}")
-    
-    return coords.astype(int), wsi_names
-
-
 def save_attention_scores(
     bag_id: str,
     attention_weights: torch.Tensor,
-    features_root: Path,
+    patch_metadata: dict | None,
     attention_dir: Path,
 ) -> None:
-    
-    # Re-loads the features files to get the patch coords
-    feature_path = features_root / f"{bag_id}.npz"
-    coords, wsi_names = load_patches_metadata(feature_path)
+    if patch_metadata is None:
+        raise ValueError(f"Patch metadata is required to save attention scores for bag {bag_id}")
+
+    coords = np.asarray(patch_metadata["coords"])
+    wsi_names = np.asarray(patch_metadata["wsi_names"])
     weights = attention_weights.detach().cpu().numpy()
 
     if len(coords) != len(weights):
@@ -140,7 +124,7 @@ def run_inference(
     model: nn.Module,
     loader: DataLoader,
     device: torch.device,
-    features_root: Path,
+    threshold: float,
     output_dir: Path,
 ) -> tuple[float, float]:
     model.eval()
@@ -148,7 +132,7 @@ def run_inference(
     attention_dir = output_dir / "attention_scores"
     prediction_rows: list[dict] = []
 
-    for bags, labels, bag_ids in loader:
+    for bags, labels, bag_ids, patch_metadata_list in loader:
 
         # Process one batch of bags
 
@@ -158,10 +142,10 @@ def run_inference(
         logits, attn_weights = model(bags) # logits shape (batch_size,), attn_weights is list of (num_patches,) tensors for each bag
         probs = torch.sigmoid(logits).cpu().numpy()
         labels_np = labels.cpu().numpy().astype(int)
-        preds = (probs >= 0.5).astype(int)
+        preds = (probs >= threshold).astype(int)
 
-        for bag_id, label, prob, pred, weights in zip(
-            bag_ids, labels_np, probs, preds, attn_weights
+        for bag_id, label, prob, pred, weights, patch_metadata in zip(
+            bag_ids, labels_np, probs, preds, attn_weights, patch_metadata_list
         ):
             prediction_rows.append(
                 {
@@ -174,7 +158,7 @@ def run_inference(
             save_attention_scores(
                 bag_id=bag_id,
                 attention_weights=weights,
-                features_root=features_root,
+                patch_metadata=patch_metadata,
                 attention_dir=attention_dir,
             )
 
@@ -194,6 +178,36 @@ def run_inference(
     return acc, auc
 
 
+def resolve_inference_data_config(
+    args: argparse.Namespace,
+    metadata: dict,
+) -> tuple[str, Path, Path | None, HandcraftedFeatureScaler | None, float]:
+    data_details = metadata.get("data_details", {})
+    training_details = metadata.get("training_details", {})
+
+    feature_mode = data_details.get("feature_mode", "deep")
+    features_root_value = args.features_root or data_details.get("features_root")
+    if features_root_value is None:
+        raise ValueError("Deep feature root is missing from both CLI arguments and checkpoint metadata.")
+
+    handcrafted_root_value = args.handcrafted_features_root
+    if handcrafted_root_value is None:
+        handcrafted_root_value = data_details.get("handcrafted_features_root")
+
+    handcrafted_scaler = HandcraftedFeatureScaler.from_metadata(
+        data_details.get("handcrafted_scaler")
+    )
+    decision_threshold = float(training_details.get("decision_threshold", 0.5))
+
+    return (
+        feature_mode,
+        Path(features_root_value),
+        Path(handcrafted_root_value) if handcrafted_root_value is not None else None,
+        handcrafted_scaler,
+        decision_threshold,
+    )
+
+
 def main() -> None:
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -206,9 +220,17 @@ def main() -> None:
         raise ValueError(f"Manifest missing columns: {missing}")
 
     # Load and validate model config from checkpoint
-    model_args, _ = load_checkpoint_config(args.checkpoint_dir)
+    model_args, metadata = load_checkpoint_config(args.checkpoint_dir)
     model_entry = MODEL_REGISTRY[model_args.model_type]
     model_entry["validate"](model_args)
+
+    (
+        feature_mode,
+        features_root,
+        handcrafted_features_root,
+        handcrafted_scaler,
+        decision_threshold,
+    ) = resolve_inference_data_config(args, metadata)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     checkpoint_path = args.checkpoint_dir / "best_model.pth"
@@ -223,7 +245,10 @@ def main() -> None:
     num_workers = 0
     dataset = MILBagDataset(
         manifest,
-        args.features_root,
+        features_root,
+        handcrafted_features_root=handcrafted_features_root,
+        feature_mode=feature_mode,
+        handcrafted_scaler=handcrafted_scaler,
         max_bag_size=0,
         enable_sampling=False,
     )
@@ -240,17 +265,18 @@ def main() -> None:
         model=model,
         loader=loader,
         device=device,
-        features_root=args.features_root,
+        threshold=decision_threshold,
         output_dir=args.output_dir,
     )
 
     metrics = {
+        "decision_threshold": decision_threshold,
         "accuracy": acc,
         "auc": auc,
     }
     save_metrics(metrics, args.output_dir)
 
-    print(f"Final acc={acc:.4f} auc={auc:.4f}")
+    print(f"Final threshold={decision_threshold:.4f} acc={acc:.4f} auc={auc:.4f}")
     print(f"Saved predictions to {args.output_dir / 'predictions.csv'}")
     print(f"Saved attention scores to {args.output_dir / 'attention_scores'}")
 
