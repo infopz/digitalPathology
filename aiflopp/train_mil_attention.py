@@ -30,22 +30,22 @@ from aiflopp.models import AVAILABLE_MODEL_TYPES, MODEL_REGISTRY
 
 def parse_args() -> argparse.Namespace:
     default_train_manifest = Path(
-        "/home/ubuntu/giodir/digitalPathology/manifests/afpp_manifest_cad_diff_binary/train_manifest.csv"
+        "/home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_all_cad_binary_diff/train_manifest.csv"
     )
     default_val_manifest = Path(
-        "/home/ubuntu/giodir/digitalPathology/manifests/afpp_manifest_cad_diff_binary/val_manifest.csv"
+        "/home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_all_cad_binary_diff/val_manifest.csv"
     )
     default_test_manifest = Path(
-        "/home/ubuntu/giodir/digitalPathology/manifests/afpp_manifest_cad_diff_binary/test_manifest.csv"
+        "/home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_all_cad_binary_diff/test_manifest.csv"
     )
 
     default_features_root = Path(
-        "/home/ubuntu/giodir/digitalPathology/data/uni_features_RE_common_w_names"
+        "/home/ubuntu/giodir/digitalPathology/data/features/uni_features_RE_all"
     )
     default_handcrafted_features_root = Path(
-        "/home/ubuntu/giodir/digitalPathology/data/ali_handcraft_RE_common_w_names"
+        "/home/ubuntu/giodir/digitalPathology/data/features/ali_handcraft_RE_common_w_names"
     )
-    default_output_dir = Path("aiflopp/outputs_cad_dis_hand/deep_only")
+    default_output_dir = Path("aiflopp/outputs/all_data/cad_diff_binary_first")
 
     parser = argparse.ArgumentParser(
         description="Train a MIL attention model on subregion patch features."

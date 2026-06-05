@@ -9,9 +9,9 @@ from sklearn.model_selection import StratifiedGroupKFold
 
 BAG_ID_PATTERN = re.compile(r"^RE_I_25_(\d+)_\d+_([A-Za-z]+)$")
 
-DEFAULT_FEATURES_DIR = Path("data/uni_features_RE_common_w_names")
-DEFAULT_LABELS_CSV = Path("/home/ubuntu/giodir/digitalPathology/data/discordance_cad_labels/binary_important_diff_labels.csv")
-DEFAULT_OUTPUT_DIR = Path("/home/ubuntu/giodir/digitalPathology/manifests/afpp_manifest_cad_imp_diff_binary")
+DEFAULT_FEATURES_DIR = Path("data/features/uni_features_RE_all")
+DEFAULT_LABELS_CSV = Path("/home/ubuntu/giodir/digitalPathology/data/labels/all_cad_discordance_labels/binary_diff_labels.csv")
+DEFAULT_OUTPUT_DIR = Path("/home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_all_cad_binary_diff")
 
 DEFAULT_TRAIN_RATIO = 0.7
 DEFAULT_VAL_RATIO = 0.15

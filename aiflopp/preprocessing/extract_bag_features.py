@@ -18,6 +18,8 @@ def parse_patch_filename(patch_path: Path) -> Tuple[str, int, int]:
     """
     Given a patch filename like "RE-I_25_16299_1_K_1_130911_prostate_HNE_100352_10240.png"
     extract the original filename and the coordinates of the patch (x, y).
+
+    Works also with trento images with filenames like "TN_10_10_151449_75776_39424.png"
     """
     filename_parts = patch_path.stem.split("_")
     if len(filename_parts) < 3:
@@ -174,8 +176,8 @@ def main(input_folder: Path, output_folder: Path, uni_weights_path: Path, batch_
 
 if __name__ == "__main__":
 
-    PATCH_FOLDER_PATH = Path("/home/ubuntu/giodir/digitalPathology/data/alice/bag_remains/")
-    OUTPUT_PATH = Path("/home/ubuntu/giodir/digitalPathology/data/uni_features_RE_reamins/")
+    PATCH_FOLDER_PATH = Path("/mnt/f/bag_aiflopp/Bag_Trento/")
+    OUTPUT_PATH = Path("/home/ubuntu/giodir/digitalPathology/data/features/uni_features_TR/")
 
     UNI_WEIGHTS_PATH = "/home/ubuntu/giodir/misc/pytorch_model.bin"
 
