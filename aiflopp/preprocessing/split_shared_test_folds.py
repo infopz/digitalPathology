@@ -105,6 +105,13 @@ def load_filtered_manifest(labels_csv: Path, features_dir: Path) -> pd.DataFrame
     return manifest.sort_values("bag_id").reset_index(drop=True)
 
 
+def _class_distribution(data: pd.DataFrame, label_classes: list[int]) -> np.ndarray:
+    counts = data["label"].value_counts().reindex(label_classes, fill_value=0).to_numpy(dtype=float)
+    if counts.sum() == 0:
+        return np.zeros(len(label_classes), dtype=float)
+    return counts / counts.sum()
+
+
 def _best_group_stratified_holdout(
     data: pd.DataFrame,
     holdout_ratio: float,
@@ -120,7 +127,8 @@ def _best_group_stratified_holdout(
 
     y = data["label"].to_numpy()
     groups = data["patient_id"].to_numpy()
-    global_pos_ratio = float(data["label"].mean())
+    label_classes = sorted(data["label"].unique().tolist())
+    global_label_dist = _class_distribution(data, label_classes)
 
     best_train_idx: np.ndarray | None = None
     best_holdout_idx: np.ndarray | None = None
@@ -138,10 +146,11 @@ def _best_group_stratified_holdout(
                 continue
 
             ratio = len(holdout_idx) / len(data)
-            holdout_pos_ratio = float(data.iloc[holdout_idx]["label"].mean())
+            holdout_label_dist = _class_distribution(data.iloc[holdout_idx], label_classes)
+            label_dist_error = float(np.abs(holdout_label_dist - global_label_dist).sum())
 
             # Prioritize matching target size, then label balance.
-            score = abs(ratio - holdout_ratio) + 0.5 * abs(holdout_pos_ratio - global_pos_ratio)
+            score = abs(ratio - holdout_ratio) + 0.5 * label_dist_error
             if score < best_score:
                 best_score = score
                 best_train_idx = train_idx

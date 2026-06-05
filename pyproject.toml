@@ -21,6 +21,7 @@ dependencies = [
     "openslide-python>=1.4.3",
     "matplotlib>=3.10.8",
     "openpyxl>=3.1.5",
+    "optuna>=4.9.0",
 ]
 
 [tool.uv]

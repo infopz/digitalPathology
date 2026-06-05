@@ -30,13 +30,13 @@ from aiflopp.models import AVAILABLE_MODEL_TYPES, MODEL_REGISTRY
 
 def parse_args() -> argparse.Namespace:
     default_train_manifest = Path(
-        "/home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_all_cad_binary_diff/train_manifest.csv"
+        "/home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_all_binary_diff/train_manifest.csv"
     )
     default_val_manifest = Path(
-        "/home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_all_cad_binary_diff/val_manifest.csv"
+        "/home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_all_binary_diff/val_manifest.csv"
     )
     default_test_manifest = Path(
-        "/home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_all_cad_binary_diff/test_manifest.csv"
+        "/home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_all_binary_diff/test_manifest.csv"
     )
 
     default_features_root = Path(
@@ -45,7 +45,7 @@ def parse_args() -> argparse.Namespace:
     default_handcrafted_features_root = Path(
         "/home/ubuntu/giodir/digitalPathology/data/features/ali_handcraft_RE_common_w_names"
     )
-    default_output_dir = Path("aiflopp/outputs/all_data/cad_diff_binary_first")
+    default_output_dir = Path("aiflopp/outputs/all_data/binary_diff_first")
 
     parser = argparse.ArgumentParser(
         description="Train a MIL attention model on subregion patch features."
@@ -83,6 +83,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--hidden-dim", type=int, default=64, help="Hidden size for final classifier."
     )
+    parser.add_argument(
+        "--num-classes",
+        type=int,
+        default=0,
+        help="Number of label classes. If 0, infer from train/val/test manifests.",
+    )
     parser.add_argument("--dropout", type=float, default=0.25)
     parser.add_argument(
         "--feature-mode",
@@ -93,10 +99,11 @@ def parse_args() -> argparse.Namespace:
     )
 
     # Training hyperparameters
-    parser.add_argument("--epochs", type=int, default=15)
+    parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--batch-size", type=int, default=8)
-    parser.add_argument("--lr", type=float, default=1e-3, help="Adam learning rate.")
+    parser.add_argument("--lr", type=float, default=5e-4, help="Adam learning rate.")
     parser.add_argument("--weight-decay", type=float, default=1e-4)
+    parser.add_argument("--patience", type=int, default=10, help="Early stopping patience in epochs.")
     parser.add_argument(
         "--max-bag-size",
         type=int,
@@ -142,11 +149,71 @@ def validate_output_dir(path: Path) -> Path:
     return timestamped_path     
 
 
+def is_multiclass_task(num_classes: int) -> bool:
+    return num_classes > 2
+
+
+def prepare_label_space(manifests: list[pd.DataFrame], requested_num_classes: int) -> int:
+    labels: list[np.ndarray] = []
+
+    # Parse all labels from manifests
+    for manifest in manifests:
+        if "label" not in manifest.columns:
+            raise ValueError("Manifest missing required column: label")
+
+        # Read the labels as numeric values
+        label_values = pd.to_numeric(manifest["label"], errors="raise").to_numpy(dtype=float)
+        if not np.isfinite(label_values).all():
+            raise ValueError("Labels must be finite numeric values.")
+
+        # Convert them to int
+        label_ints = label_values.astype(int)
+        if not np.allclose(label_values, label_ints):
+            raise ValueError("Labels must be integer class ids.")
+
+        # Re-assing the int labels
+        manifest["label"] = label_ints
+        labels.append(label_ints)
+
+    # Validate the labels
+    all_labels = np.concatenate(labels)
+    if len(all_labels) == 0:
+        raise ValueError("Cannot infer label space from empty manifests.")
+    if all_labels.min() < 0:
+        raise ValueError("Labels must be non-negative integer class ids.")
+
+    # Check class consitency (contiguous)
+    observed_classes = set(np.unique(all_labels).tolist())
+    if requested_num_classes > 0:
+        num_classes = requested_num_classes
+        expected_classes = set(range(num_classes))
+        unexpected = observed_classes - expected_classes
+        if unexpected:
+            raise ValueError(
+                f"Observed labels outside --num-classes={num_classes}: {sorted(unexpected)}"
+            )
+    else:
+        num_classes = int(all_labels.max()) + 1
+        expected_classes = set(range(num_classes))
+        missing = expected_classes - observed_classes
+        if missing:
+            raise ValueError(
+                "Labels must be contiguous from 0 to num_classes - 1. "
+                f"Missing classes: {sorted(missing)}"
+            )
+
+    if num_classes < 2:
+        raise ValueError(f"At least 2 classes are required, got {num_classes}.")
+
+    return num_classes
+
+
 @torch.no_grad()
 def collect_predictions(
     model: nn.Module,
     loader: DataLoader,
     device: torch.device,
+    num_classes: int,
 ) -> tuple[list[str], np.ndarray, np.ndarray]:
     """
     Run the model on the given DataLoader
@@ -154,7 +221,7 @@ def collect_predictions(
     model.eval()
 
     all_bag_ids: list[str] = []
-    all_probs: list[float] = []
+    all_probs: list[float] | list[list[float]] = []
     all_labels: list[int] = []
 
     for bags, labels, bag_ids, _ in loader:
@@ -162,7 +229,10 @@ def collect_predictions(
         labels = labels.to(device)
 
         logits, _ = model(bags)
-        probs = torch.sigmoid(logits)
+        if is_multiclass_task(num_classes):
+            probs = torch.softmax(logits, dim=1)
+        else:
+            probs = torch.sigmoid(logits)
 
         all_bag_ids.extend(bag_ids)
         all_probs.extend(probs.cpu().numpy().tolist())
@@ -174,8 +244,54 @@ def collect_predictions(
 def compute_metrics(
     y_true: np.ndarray,
     y_prob: np.ndarray,
-    threshold: float = 0.5,
+    threshold: float | None = 0.5,
+    num_classes: int = 2,
 ) -> dict:
+    labels = list(range(num_classes))
+
+    # Multiclass metrics
+    if is_multiclass_task(num_classes):
+        y_pred = np.argmax(y_prob, axis=1)
+
+        acc = accuracy_score(y_true, y_pred)
+        precision = precision_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)
+        recall = recall_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)
+        f2 = fbeta_score(y_true, y_pred, labels=labels, beta=2, average="macro", zero_division=0)
+        balanced_acc = balanced_accuracy_score(y_true, y_pred)
+        cm = confusion_matrix(y_true, y_pred, labels=labels)
+        try:
+            auc = roc_auc_score(
+                y_true,
+                y_prob,
+                labels=labels,
+                multi_class="ovr",
+                average="macro",
+            )
+        except ValueError:
+            auc = float("nan")
+
+        return {
+            "threshold": None,
+            "acc": float(acc),
+            "precision": float(precision),
+            "recall": float(recall),
+            "f2": float(f2),
+            "balanced_acc": float(balanced_acc),
+            "auc": float(auc),
+            "macro_precision": float(precision),
+            "macro_recall": float(recall),
+            "macro_f2": float(f2),
+            "weighted_precision": float(precision_score(y_true, y_pred, labels=labels, average="weighted", zero_division=0)),
+            "weighted_recall": float(recall_score(y_true, y_pred, labels=labels, average="weighted", zero_division=0)),
+            "weighted_f2": float(fbeta_score(y_true, y_pred, labels=labels, beta=2, average="weighted", zero_division=0)),
+            "confusion_matrix": cm.tolist(),
+        }
+
+    # Binary metrics
+
+    if threshold is None:
+        threshold = 0.5
+
     y_pred = (y_prob >= threshold).astype(int)
 
     acc = accuracy_score(y_true, y_pred)
@@ -258,19 +374,33 @@ def save_predictions(
     bag_ids: list[str],
     y_true: np.ndarray,
     y_prob: np.ndarray,
-    threshold: float,
+    threshold: float | None,
+    num_classes: int,
     output_csv_path: Path,
 ) -> None:
     output_csv_path.parent.mkdir(parents=True, exist_ok=True)
 
-    pred_df = pd.DataFrame(
-        {
+    if is_multiclass_task(num_classes):
+        pred_data = {
             "bag_id": bag_ids,
             "label": y_true,
-            "pred_prob": y_prob,
-            "pred_label": (y_prob >= threshold).astype(int),
+            "pred_label": np.argmax(y_prob, axis=1),
         }
-    )
+        for class_idx in range(num_classes):
+            pred_data[f"prob_class_{class_idx}"] = y_prob[:, class_idx]
+        pred_df = pd.DataFrame(pred_data)
+    else:
+        if threshold is None:
+            threshold = 0.5
+        pred_df = pd.DataFrame(
+            {
+                "bag_id": bag_ids,
+                "label": y_true,
+                "pred_prob": y_prob,
+                "pred_label": (y_prob >= threshold).astype(int),
+            }
+        )
+
     pred_df.to_csv(output_csv_path, index=False)
     print(f"Saved predictions to {output_csv_path}")
 
@@ -280,15 +410,16 @@ def evaluate(
     model: nn.Module,
     loader: DataLoader,
     device: torch.device,
-    threshold: float = 0.5,
+    threshold: float | None = 0.5,
+    num_classes: int = 2,
     output_csv_path: Path = None,
 ) -> dict:
-    bag_ids, y_true, y_prob = collect_predictions(model, loader, device)
-    metrics = compute_metrics(y_true, y_prob, threshold=threshold)
+    bag_ids, y_true, y_prob = collect_predictions(model, loader, device, num_classes)
+    metrics = compute_metrics(y_true, y_prob, threshold=threshold, num_classes=num_classes)
 
     # Optionally save predictions for error analysis
     if output_csv_path is not None:
-        save_predictions(bag_ids, y_true, y_prob, threshold, output_csv_path)
+        save_predictions(bag_ids, y_true, y_prob, threshold, num_classes, output_csv_path)
 
     return metrics
 
@@ -313,6 +444,31 @@ def compute_pos_weight(train_manifest: pd.DataFrame, device: torch.device) -> to
     return torch.tensor(pos_weight, dtype=torch.float32, device=device)
 
 
+def compute_class_weights(
+    train_manifest: pd.DataFrame,
+    num_classes: int,
+    device: torch.device,
+) -> torch.Tensor:
+    # Compute the labels distribution to calculate class weights for CrossEntropyLoss
+
+    label_counts = train_manifest["label"].value_counts().to_dict()
+    missing_classes = [class_idx for class_idx in range(num_classes) if class_idx not in label_counts]
+    if missing_classes:
+        raise ValueError(
+            "Training manifest is missing classes required for multiclass training: "
+            f"{missing_classes}"
+        )
+
+    counts = np.array([label_counts[class_idx] for class_idx in range(num_classes)], dtype=np.float32)
+    weights = counts.sum() / (num_classes * counts)
+    print(
+        "Training class distribution: "
+        f"{dict(zip(range(num_classes), counts.astype(int).tolist()))}, "
+        f"class_weights={weights.tolist()}"
+    )
+    return torch.tensor(weights, dtype=torch.float32, device=device)
+
+
 def seed_everything(seed: int) -> None:
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -326,18 +482,24 @@ def train(
     val_loader: DataLoader,
     args: argparse.Namespace,
     device: torch.device,
-    pos_weight: torch.Tensor,
+    loss_weight: torch.Tensor,
     best_metric: str = "auc",
 ):
-    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+    if is_multiclass_task(args.num_classes):
+        criterion = nn.CrossEntropyLoss(weight=loss_weight)
+    else:
+        criterion = nn.BCEWithLogitsLoss(pos_weight=loss_weight)
+
     optimizer = torch.optim.Adam(
         model.parameters(), lr=args.lr, weight_decay=args.weight_decay
     )
 
+    patience_max = args.patience
+
     best_val = -float("inf")
     best_state = None
     best_epoch = -1
-
+    
     for epoch in range(1, args.epochs + 1):
         model.train()
         epoch_loss = 0.0
@@ -347,7 +509,10 @@ def train(
             labels = labels.to(device)
 
             logits, _ = model(bags)
-            loss = criterion(logits, labels)
+            if is_multiclass_task(args.num_classes):
+                loss = criterion(logits, labels.long())
+            else:
+                loss = criterion(logits, labels)
 
             optimizer.zero_grad()
             loss.backward()
@@ -356,7 +521,7 @@ def train(
             epoch_loss += loss.item() * len(bags)
 
         avg_loss = epoch_loss / len(train_loader.dataset)
-        val_metrics = evaluate(model, val_loader, device)
+        val_metrics = evaluate(model, val_loader, device, num_classes=args.num_classes)
         print(
             f"Epoch {epoch}: loss={avg_loss:.4f} "
             f"val_recall={val_metrics['recall']:.4f} "
@@ -365,9 +530,18 @@ def train(
         )
 
         if val_metrics[best_metric] > best_val:
+            # Save new best model state
             best_val = val_metrics[best_metric]
             best_state = {k: v.cpu() for k, v in model.state_dict().items()}
             best_epoch = epoch
+        else:
+            # Check early stopping
+            if epoch - best_epoch >= patience_max:
+                print(
+                    f"No improvement in {best_metric} for {patience_max} epochs. "
+                    f"Stopping early at epoch {epoch}."
+                )
+                break
 
     if best_state is not None:
         print(f"Best validation epoch {best_epoch} with {best_metric}: {best_val:.4f}. Loading best model state.")
@@ -397,7 +571,9 @@ def save_model_and_metadata(
             "learning_rate": args.lr,
             "weight_decay": args.weight_decay,
             "max_bag_size": args.max_bag_size,
+            "num_classes": args.num_classes,
             "pos_weight": args.pos_weight,
+            "class_weights": args.class_weights,
             "threshold_metric": args.threshold_metric,
             "decision_threshold": args.decision_threshold,
         },
@@ -441,7 +617,10 @@ def save_model_metrics(metrics: dict, output_dir: Path) -> None:
 
 def print_metrics(split_name: str, metrics: dict) -> None:
     print(f"Final {split_name} metrics:")
-    print(f"  threshold: {metrics['threshold']:.4f}")
+    if metrics["threshold"] is None:
+        print("  threshold: None")
+    else:
+        print(f"  threshold: {metrics['threshold']:.4f}")
     print(f"  accuracy: {metrics['acc']:.4f}")
     print(f"  precision: {metrics['precision']:.4f}")
     print(f"  recall: {metrics['recall']:.4f}")
@@ -449,17 +628,14 @@ def print_metrics(split_name: str, metrics: dict) -> None:
     print(f"  balanced_accuracy: {metrics['balanced_acc']:.4f}")
     print(f"  auc: {metrics['auc']:.4f}")
     print("  confusion_matrix:")
-    print(f"    {metrics['confusion_matrix'][0]}")
-    print(f"    {metrics['confusion_matrix'][1]}")
+    for row in metrics["confusion_matrix"]:
+        print(f"    {row}")
 
 
 def main() -> None:
     args = parse_args()
     args.output_dir = validate_output_dir(args.output_dir)
 
-    # Select model_type and validate args
-    model_entry = MODEL_REGISTRY[args.model_type]
-    model_entry["validate"](args)
     seed_everything(args.seed)
 
     device = torch.device(args.device)
@@ -468,6 +644,17 @@ def main() -> None:
     train_manifest = pd.read_csv(args.train_manifest)
     val_manifest = pd.read_csv(args.val_manifest)
     test_manifest = pd.read_csv(args.test_manifest)
+
+    args.num_classes = prepare_label_space(
+        [train_manifest, val_manifest, test_manifest],
+        requested_num_classes=args.num_classes,
+    )
+    args.output_dim = 1 if not is_multiclass_task(args.num_classes) else args.num_classes
+    print(f"Using num_classes={args.num_classes}, model output_dim={args.output_dim}")
+
+    # Select model_type and validate args
+    model_entry = MODEL_REGISTRY[args.model_type]
+    model_entry["validate"](args)
 
     # If using handcrafted features, fit a scaler on the training set to apply to all splits
     handcrafted_scaler = None
@@ -490,9 +677,18 @@ def main() -> None:
     args.input_dim = input_dim
     print(f"Using feature mode: {args.feature_mode}")
     print(f"Inferred feature dim: {input_dim}")
-    pos_weight = compute_pos_weight(train_manifest, device)
-    args.pos_weight = float(pos_weight.item())
-    args.decision_threshold = 0.5
+
+    # Compute class weights
+    if is_multiclass_task(args.num_classes):
+        loss_weight = compute_class_weights(train_manifest, args.num_classes, device)
+        args.pos_weight = None
+        args.class_weights = loss_weight.detach().cpu().numpy().tolist()
+        args.decision_threshold = None
+    else:
+        loss_weight = compute_pos_weight(train_manifest, device)
+        args.pos_weight = float(loss_weight.item())
+        args.class_weights = None
+        args.decision_threshold = 0.5
 
     # Filter args to keep only those used by model initialization
     model_config = model_entry["config"](args)
@@ -554,16 +750,32 @@ def main() -> None:
     model = model_entry["build"](args).to(device)
 
     # Train model
-    model = train(model, train_loader, val_loader, args, device, pos_weight, best_metric=args.threshold_metric)
+    model = train(model, train_loader, val_loader, args, device, loss_weight, best_metric=args.threshold_metric)
 
-    # Tune the threshold on the validation predictions
-    val_bag_ids, val_y_true, val_y_prob = collect_predictions(model, val_loader, device)
-    best_threshold, val_metrics, val_threshold_search = search_best_threshold(
-        val_y_true,
-        val_y_prob,
-        objective=args.threshold_metric,
+    val_bag_ids, val_y_true, val_y_prob = collect_predictions(
+        model,
+        val_loader,
+        device,
+        args.num_classes,
     )
-    args.decision_threshold = float(best_threshold)
+    if is_multiclass_task(args.num_classes):
+        best_threshold = None
+        val_threshold_search = []
+        val_metrics = compute_metrics(
+            val_y_true,
+            val_y_prob,
+            threshold=None,
+            num_classes=args.num_classes,
+        )
+        args.decision_threshold = None
+    else:
+        # Tune the threshold on the validation predictions
+        best_threshold, val_metrics, val_threshold_search = search_best_threshold(
+            val_y_true,
+            val_y_prob,
+            objective=args.threshold_metric,
+        )
+        args.decision_threshold = float(best_threshold)
 
     val_csv_path = args.output_dir / "val_predictions.csv"
     save_predictions(
@@ -571,12 +783,19 @@ def main() -> None:
         val_y_true,
         val_y_prob,
         threshold=best_threshold,
+        num_classes=args.num_classes,
         output_csv_path=val_csv_path,
     )
-    print(
-        f"Selected validation threshold={best_threshold:.4f} "
-        f"using {args.threshold_metric}={val_metrics[args.threshold_metric]:.4f}"
-    )
+    if best_threshold is None:
+        print(
+            "Using argmax predictions on validation set "
+            f"with {args.threshold_metric}={val_metrics[args.threshold_metric]:.4f}"
+        )
+    else:
+        print(
+            f"Selected validation threshold={best_threshold:.4f} "
+            f"using {args.threshold_metric}={val_metrics[args.threshold_metric]:.4f}"
+        )
 
     # Evaluate the model on test set using the selected threshold
     test_csv_path = args.output_dir / "test_predictions.csv"
@@ -585,6 +804,7 @@ def main() -> None:
         test_loader,
         device,
         threshold=best_threshold,
+        num_classes=args.num_classes,
         output_csv_path=test_csv_path,
     )
 
@@ -593,6 +813,7 @@ def main() -> None:
 
     # Save model and metrics
     metrics = {
+        "num_classes": args.num_classes,
         "decision_threshold": best_threshold,
         "threshold_metric": args.threshold_metric,
         "val_threshold_search": val_threshold_search,

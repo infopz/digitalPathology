@@ -6,7 +6,15 @@ import sys
 import numpy as np
 import pandas as pd
 import torch
-from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.metrics import (
+    accuracy_score,
+    balanced_accuracy_score,
+    confusion_matrix,
+    fbeta_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 from torch import nn
 from torch.utils.data import DataLoader
 
@@ -16,6 +24,10 @@ if __package__ in {None, ""}:
 from aiflopp.datasets import MILBagDataset, collate_bags
 from aiflopp.feature_utils import HandcraftedFeatureScaler
 from aiflopp.models import MODEL_REGISTRY
+
+
+def is_multiclass_task(num_classes: int) -> bool:
+    return num_classes > 2
 
 
 def parse_args() -> argparse.Namespace:
@@ -119,14 +131,55 @@ def save_attention_scores(
     attention_df.to_csv(attention_dir / f"{bag_id}.csv", index=False)
 
 
+def compute_metrics(y_true: np.ndarray, y_prob: np.ndarray, y_pred: np.ndarray, num_classes: int) -> dict:
+    labels = list(range(num_classes))
+    metrics = {
+        "accuracy": float(accuracy_score(y_true, y_pred)),
+        "balanced_accuracy": float(balanced_accuracy_score(y_true, y_pred)),
+        "confusion_matrix": confusion_matrix(y_true, y_pred, labels=labels).tolist(),
+    }
+
+    if is_multiclass_task(num_classes):
+        metrics.update(
+            {
+                "macro_precision": float(precision_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)),
+                "macro_recall": float(recall_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)),
+                "macro_f2": float(fbeta_score(y_true, y_pred, labels=labels, beta=2, average="macro", zero_division=0)),
+                "weighted_precision": float(precision_score(y_true, y_pred, labels=labels, average="weighted", zero_division=0)),
+                "weighted_recall": float(recall_score(y_true, y_pred, labels=labels, average="weighted", zero_division=0)),
+                "weighted_f2": float(fbeta_score(y_true, y_pred, labels=labels, beta=2, average="weighted", zero_division=0)),
+            }
+        )
+        try:
+            metrics["auc"] = float(
+                roc_auc_score(
+                    y_true,
+                    y_prob,
+                    labels=labels,
+                    multi_class="ovr",
+                    average="macro",
+                )
+            )
+        except ValueError:
+            metrics["auc"] = float("nan")
+    else:
+        try:
+            metrics["auc"] = float(roc_auc_score(y_true, y_prob))
+        except ValueError:
+            metrics["auc"] = float("nan")
+
+    return metrics
+
+
 @torch.no_grad()
 def run_inference(
     model: nn.Module,
     loader: DataLoader,
     device: torch.device,
-    threshold: float,
+    threshold: float | None,
+    num_classes: int,
     output_dir: Path,
-) -> tuple[float, float]:
+) -> dict:
     model.eval()
 
     attention_dir = output_dir / "attention_scores"
@@ -139,22 +192,32 @@ def run_inference(
         bags = [b.to(device) for b in bags]
         labels = labels.to(device)
 
-        logits, attn_weights = model(bags) # logits shape (batch_size,), attn_weights is list of (num_patches,) tensors for each bag
-        probs = torch.sigmoid(logits).cpu().numpy()
+        logits, attn_weights = model(bags) # logits shape (batch_size,) or (batch_size, num_classes)
+        if is_multiclass_task(num_classes):
+            probs = torch.softmax(logits, dim=1).cpu().numpy()
+            preds = probs.argmax(axis=1)
+        else:
+            if threshold is None:
+                threshold = 0.5
+            probs = torch.sigmoid(logits).cpu().numpy()
+            preds = (probs >= threshold).astype(int)
         labels_np = labels.cpu().numpy().astype(int)
-        preds = (probs >= threshold).astype(int)
 
-        for bag_id, label, prob, pred, weights, patch_metadata in zip(
-            bag_ids, labels_np, probs, preds, attn_weights, patch_metadata_list
-        ):
-            prediction_rows.append(
-                {
-                    "bag_id": bag_id,
-                    "label": int(label),
-                    "pred_prob": float(prob),
-                    "pred_label": int(pred),
-                }
-            )
+        for row_idx, (bag_id, label, pred, weights, patch_metadata) in enumerate(zip(
+            bag_ids, labels_np, preds, attn_weights, patch_metadata_list
+        )):
+            prediction_row = {
+                "bag_id": bag_id,
+                "label": int(label),
+                "pred_label": int(pred),
+            }
+            if is_multiclass_task(num_classes):
+                for class_idx in range(num_classes):
+                    prediction_row[f"prob_class_{class_idx}"] = float(probs[row_idx, class_idx])
+            else:
+                prediction_row["pred_prob"] = float(probs[row_idx])
+
+            prediction_rows.append(prediction_row)
             save_attention_scores(
                 bag_id=bag_id,
                 attention_weights=weights,
@@ -166,22 +229,20 @@ def run_inference(
     pred_df.to_csv(output_dir / "predictions.csv", index=False)
 
     y_true = pred_df["label"].to_numpy()
-    y_prob = pred_df["pred_prob"].to_numpy()
     y_pred = pred_df["pred_label"].to_numpy()
+    if is_multiclass_task(num_classes):
+        prob_cols = [f"prob_class_{class_idx}" for class_idx in range(num_classes)]
+        y_prob = pred_df[prob_cols].to_numpy()
+    else:
+        y_prob = pred_df["pred_prob"].to_numpy()
 
-    acc = accuracy_score(y_true, y_pred)
-    try:
-        auc = roc_auc_score(y_true, y_prob)
-    except ValueError:
-        auc = float("nan")
-
-    return acc, auc
+    return compute_metrics(y_true, y_prob, y_pred, num_classes)
 
 
 def resolve_inference_data_config(
     args: argparse.Namespace,
     metadata: dict,
-) -> tuple[str, Path, Path | None, HandcraftedFeatureScaler | None, float]:
+) -> tuple[str, Path, Path | None, HandcraftedFeatureScaler | None, float | None]:
     data_details = metadata.get("data_details", {})
     training_details = metadata.get("training_details", {})
 
@@ -197,7 +258,8 @@ def resolve_inference_data_config(
     handcrafted_scaler = HandcraftedFeatureScaler.from_metadata(
         data_details.get("handcrafted_scaler")
     )
-    decision_threshold = float(training_details.get("decision_threshold", 0.5))
+    threshold_value = training_details.get("decision_threshold", 0.5)
+    decision_threshold = None if threshold_value is None else float(threshold_value)
 
     return (
         feature_mode,
@@ -221,6 +283,8 @@ def main() -> None:
 
     # Load and validate model config from checkpoint
     model_args, metadata = load_checkpoint_config(args.checkpoint_dir)
+    training_details = metadata.get("training_details", {})
+    num_classes = int(getattr(model_args, "num_classes", training_details.get("num_classes", 2)))
     model_entry = MODEL_REGISTRY[model_args.model_type]
     model_entry["validate"](model_args)
 
@@ -261,22 +325,24 @@ def main() -> None:
         drop_last=False,
     )
 
-    acc, auc = run_inference(
+    metrics = run_inference(
         model=model,
         loader=loader,
         device=device,
         threshold=decision_threshold,
+        num_classes=num_classes,
         output_dir=args.output_dir,
     )
 
-    metrics = {
-        "decision_threshold": decision_threshold,
-        "accuracy": acc,
-        "auc": auc,
-    }
+    metrics["decision_threshold"] = decision_threshold
+    metrics["num_classes"] = num_classes
     save_metrics(metrics, args.output_dir)
 
-    print(f"Final threshold={decision_threshold:.4f} acc={acc:.4f} auc={auc:.4f}")
+    threshold_text = "None" if decision_threshold is None else f"{decision_threshold:.4f}"
+    print(
+        f"Final threshold={threshold_text} "
+        f"acc={metrics['accuracy']:.4f} auc={metrics['auc']:.4f}"
+    )
     print(f"Saved predictions to {args.output_dir / 'predictions.csv'}")
     print(f"Saved attention scores to {args.output_dir / 'attention_scores'}")
 
