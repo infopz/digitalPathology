@@ -30,22 +30,20 @@ from aiflopp.models import AVAILABLE_MODEL_TYPES, MODEL_REGISTRY
 
 def parse_args() -> argparse.Namespace:
     default_train_manifest = Path(
-        "/home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_all_binary_diff/train_manifest.csv"
+        "/home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_mRT_binary_diff/train_manifest.csv"
     )
     default_val_manifest = Path(
-        "/home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_all_binary_diff/val_manifest.csv"
+        "/home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_mRT_binary_diff/val_manifest.csv"
     )
     default_test_manifest = Path(
-        "/home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_all_binary_diff/test_manifest.csv"
+        "/home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_mRT_binary_diff/test_manifest.csv"
     )
 
     default_features_root = Path(
-        "/home/ubuntu/giodir/digitalPathology/data/features/uni_features_RE_all"
+        "/home/ubuntu/giodir/digitalPathology/data/features/uni_features_merged_RE_TN"
     )
-    default_handcrafted_features_root = Path(
-        "/home/ubuntu/giodir/digitalPathology/data/features/ali_handcraft_RE_common_w_names"
-    )
-    default_output_dir = Path("aiflopp/outputs/all_data/binary_diff_first")
+    default_handcrafted_features_root = None
+    default_output_dir = Path("aiflopp/outputs/merged_RT/binary_diff_first")
 
     parser = argparse.ArgumentParser(
         description="Train a MIL attention model on subregion patch features."
@@ -256,6 +254,7 @@ def compute_metrics(
         acc = accuracy_score(y_true, y_pred)
         precision = precision_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)
         recall = recall_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)
+        recall_0 = recall = recall_score(y_true, y_pred, labels=labels, average="macro", zero_division=0, pos_label=0)
         f2 = fbeta_score(y_true, y_pred, labels=labels, beta=2, average="macro", zero_division=0)
         balanced_acc = balanced_accuracy_score(y_true, y_pred)
         cm = confusion_matrix(y_true, y_pred, labels=labels)
@@ -272,12 +271,13 @@ def compute_metrics(
 
         return {
             "threshold": None,
-            "acc": float(acc),
+            "balanced_acc": float(balanced_acc),
             "precision": float(precision),
             "recall": float(recall),
-            "f2": float(f2),
-            "balanced_acc": float(balanced_acc),
+            "recall_0": float(recall_0),
             "auc": float(auc),
+            "f2": float(f2),
+            "acc": float(acc),
             "macro_precision": float(precision),
             "macro_recall": float(recall),
             "macro_f2": float(f2),
@@ -297,6 +297,7 @@ def compute_metrics(
     acc = accuracy_score(y_true, y_pred)
     precision = precision_score(y_true, y_pred, zero_division=0)
     recall = recall_score(y_true, y_pred, zero_division=0)
+    recall_0 = recall_score(y_true, y_pred, zero_division=0, pos_label=0)
     f2 = fbeta_score(y_true, y_pred, beta=2, zero_division=0)
     balanced_acc = balanced_accuracy_score(y_true, y_pred)
     cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
@@ -307,12 +308,13 @@ def compute_metrics(
 
     metrics = {
         "threshold": float(threshold),
-        "acc": float(acc),
+        "balanced_acc": float(balanced_acc),
         "precision": float(precision),
         "recall": float(recall),
-        "f2": float(f2),
-        "balanced_acc": float(balanced_acc),
+        "recall_0": float(recall_0),
         "auc": float(auc),
+        "acc": float(acc),
+        "f2": float(f2),
         "confusion_matrix": cm.tolist(),
     }
 
@@ -621,15 +623,18 @@ def print_metrics(split_name: str, metrics: dict) -> None:
         print("  threshold: None")
     else:
         print(f"  threshold: {metrics['threshold']:.4f}")
-    print(f"  accuracy: {metrics['acc']:.4f}")
+    print(f"  balanced_accuracy: {metrics['balanced_acc']:.4f}")
     print(f"  precision: {metrics['precision']:.4f}")
     print(f"  recall: {metrics['recall']:.4f}")
-    print(f"  f2: {metrics['f2']:.4f}")
-    print(f"  balanced_accuracy: {metrics['balanced_acc']:.4f}")
+    print(f"  recall_0: {metrics['recall_0']:.4f}")
     print(f"  auc: {metrics['auc']:.4f}")
+    print(f"  accuracy: {metrics['acc']:.4f}")
+    print(f"  f2: {metrics['f2']:.4f}")
     print("  confusion_matrix:")
     for row in metrics["confusion_matrix"]:
         print(f"    {row}")
+
+    print(f"  For Export: {metrics['balanced_acc']:.3f}\t{metrics['precision']:.3f}\t{metrics['recall']:.3f}\t{metrics['recall_0']:.3f}\t{metrics['auc']:.3f}")
 
 
 def main() -> None:

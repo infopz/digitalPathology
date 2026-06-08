@@ -8,9 +8,9 @@ SCRIPT FATTO PER AGGIORNARE I VECCHI NPZ GENERATI SENZA IL CAMPO wsi_names
 """
 
 def parse_args() -> argparse.Namespace:
-    default_features_dir = Path("/home/ubuntu/giodir/digitalPathology/data/uni_features_RE_reamins")
-    default_bags_dir = Path("/home/ubuntu/giodir/digitalPathology/data/alice/bag_remains")
-    default_output_dir = Path("/home/ubuntu/giodir/digitalPathology/data/uni_features_RE_reamins_w_names")
+    default_features_dir = Path("/home/ubuntu/giodir/digitalPathology/data/features/uni_features_TR")
+    default_bags_dir = Path("/home/ubuntu/giodir/digitalPathology/data/bag_aiflopp/Bag_Trento")
+    default_output_dir = Path("/home/ubuntu/giodir/digitalPathology/data/features/uni_features_TR_w_names")
 
     parser = argparse.ArgumentParser(
         description="Create updated NPZ feature files with an added wsi_names key."

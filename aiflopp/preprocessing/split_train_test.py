@@ -6,12 +6,13 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedGroupKFold
 
+RE_BAG_ID = re.compile(r"^RE_I_25_(\d+)_\d+_([A-Za-z]+)$")
+TN_BAG_ID = re.compile(r"^TN_(\d+)_(\d+)_\d+$")
+BAG_ID_PATTERN = TN_BAG_ID
 
-BAG_ID_PATTERN = re.compile(r"^RE_I_25_(\d+)_\d+_([A-Za-z]+)$")
-
-DEFAULT_FEATURES_DIR = Path("data/features/uni_features_RE_all")
-DEFAULT_LABELS_CSV = Path("/home/ubuntu/giodir/digitalPathology/data/labels/all_ggval_labels/ggval_labels.csv")
-DEFAULT_OUTPUT_DIR = Path("/home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_all_ggval")
+DEFAULT_FEATURES_DIR = Path("/home/ubuntu/giodir/digitalPathology/data/features/uni_features_TN")
+DEFAULT_LABELS_CSV = Path("/home/ubuntu/giodir/digitalPathology/data/labels/tn_base_labels/tn_base_labels_tn.csv")
+DEFAULT_OUTPUT_DIR = Path("/home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_tn_base")
 
 DEFAULT_TRAIN_RATIO = 0.7
 DEFAULT_VAL_RATIO = 0.15
@@ -63,10 +64,11 @@ def validate_ratios(train_ratio: float, val_ratio: float, test_ratio: float) -> 
 
 
 def _parse_bag_id(bag_id: str) -> tuple[str, str]:
+	# Extract patient_id and subregion_id from bag_id using regex.
 	match = BAG_ID_PATTERN.match(bag_id)
 	if not match:
 		raise ValueError(
-			f"Bag id '{bag_id}' does not match expected pattern RE_I_25_<patient_id>_<subregion_id>."
+			f"Bag id '{bag_id}' does not match expected pattern."
 		)
 	return match.group(1), match.group(2)
 

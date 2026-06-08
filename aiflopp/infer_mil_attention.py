@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import sys
 
+from tqdm import tqdm
 import numpy as np
 import pandas as pd
 import torch
@@ -24,6 +25,7 @@ if __package__ in {None, ""}:
 from aiflopp.datasets import MILBagDataset, collate_bags
 from aiflopp.feature_utils import HandcraftedFeatureScaler
 from aiflopp.models import MODEL_REGISTRY
+from aiflopp.train_mil_attention import print_metrics
 
 
 def is_multiclass_task(num_classes: int) -> bool:
@@ -33,9 +35,9 @@ def is_multiclass_task(num_classes: int) -> bool:
 def parse_args() -> argparse.Namespace:
 
     default_manifest = Path(
-        "/home/ubuntu/giodir/digitalPathology/manifests/afpp_manifest_base/test_manifest.csv"
+        "data/manifests/afpp_manifest_base_diff/test_manifest.csv"
     )
-    default_output_dir = Path("aiflopp/inference_outputs")
+    default_output_dir = Path("/home/ubuntu/giodir/digitalPathology/aiflopp/outputs_inference/test_tn_base_on_re")
 
     parser = argparse.ArgumentParser(
         description="Run MIL inference from a saved checkpoint folder."
@@ -131,44 +133,81 @@ def save_attention_scores(
     attention_df.to_csv(attention_dir / f"{bag_id}.csv", index=False)
 
 
-def compute_metrics(y_true: np.ndarray, y_prob: np.ndarray, y_pred: np.ndarray, num_classes: int) -> dict:
+def compute_metrics(
+    y_true: np.ndarray,
+    y_prob: np.ndarray,
+    threshold: float | None = 0.5,
+    num_classes: int = 2,
+) -> dict:
     labels = list(range(num_classes))
-    metrics = {
-        "accuracy": float(accuracy_score(y_true, y_pred)),
-        "balanced_accuracy": float(balanced_accuracy_score(y_true, y_pred)),
-        "confusion_matrix": confusion_matrix(y_true, y_pred, labels=labels).tolist(),
-    }
 
     if is_multiclass_task(num_classes):
-        metrics.update(
-            {
-                "macro_precision": float(precision_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)),
-                "macro_recall": float(recall_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)),
-                "macro_f2": float(fbeta_score(y_true, y_pred, labels=labels, beta=2, average="macro", zero_division=0)),
-                "weighted_precision": float(precision_score(y_true, y_pred, labels=labels, average="weighted", zero_division=0)),
-                "weighted_recall": float(recall_score(y_true, y_pred, labels=labels, average="weighted", zero_division=0)),
-                "weighted_f2": float(fbeta_score(y_true, y_pred, labels=labels, beta=2, average="weighted", zero_division=0)),
-            }
-        )
+        y_pred = np.argmax(y_prob, axis=1)
+
+        acc = accuracy_score(y_true, y_pred)
+        precision = precision_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)
+        recall = recall_score(y_true, y_pred, labels=labels, average="macro", zero_division=0)
+        recall_0 = recall_score(y_true, y_pred, labels=labels, average="macro", zero_division=0, pos_label=0)
+        f2 = fbeta_score(y_true, y_pred, labels=labels, beta=2, average="macro", zero_division=0)
+        balanced_acc = balanced_accuracy_score(y_true, y_pred)
+        cm = confusion_matrix(y_true, y_pred, labels=labels)
         try:
-            metrics["auc"] = float(
-                roc_auc_score(
-                    y_true,
-                    y_prob,
-                    labels=labels,
-                    multi_class="ovr",
-                    average="macro",
-                )
+            auc = roc_auc_score(
+                y_true,
+                y_prob,
+                labels=labels,
+                multi_class="ovr",
+                average="macro",
             )
         except ValueError:
-            metrics["auc"] = float("nan")
-    else:
-        try:
-            metrics["auc"] = float(roc_auc_score(y_true, y_prob))
-        except ValueError:
-            metrics["auc"] = float("nan")
+            auc = float("nan")
 
-    return metrics
+        return {
+            "threshold": None,
+            "acc": float(acc),
+            "precision": float(precision),
+            "recall": float(recall),
+            "recall_0": float(recall_0),
+            "f2": float(f2),
+            "balanced_acc": float(balanced_acc),
+            "auc": float(auc),
+            "macro_precision": float(precision),
+            "macro_recall": float(recall),
+            "macro_f2": float(f2),
+            "weighted_precision": float(precision_score(y_true, y_pred, labels=labels, average="weighted", zero_division=0)),
+            "weighted_recall": float(recall_score(y_true, y_pred, labels=labels, average="weighted", zero_division=0)),
+            "weighted_f2": float(fbeta_score(y_true, y_pred, labels=labels, beta=2, average="weighted", zero_division=0)),
+            "confusion_matrix": cm.tolist(),
+        }
+
+    if threshold is None:
+        threshold = 0.5
+
+    y_pred = (y_prob >= threshold).astype(int)
+
+    acc = accuracy_score(y_true, y_pred)
+    precision = precision_score(y_true, y_pred, zero_division=0)
+    recall = recall_score(y_true, y_pred, zero_division=0)
+    recall_0 = recall_score(y_true, y_pred, zero_division=0, pos_label=0)
+    f2 = fbeta_score(y_true, y_pred, beta=2, zero_division=0)
+    balanced_acc = balanced_accuracy_score(y_true, y_pred)
+    cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
+    try:
+        auc = roc_auc_score(y_true, y_prob)
+    except ValueError:
+        auc = float("nan")
+
+    return {
+        "threshold": float(threshold),
+        "acc": float(acc),
+        "precision": float(precision),
+        "recall": float(recall),
+        "recall_0": float(recall_0),
+        "f2": float(f2),
+        "balanced_acc": float(balanced_acc),
+        "auc": float(auc),
+        "confusion_matrix": cm.tolist(),
+    }
 
 
 @torch.no_grad()
@@ -185,7 +224,7 @@ def run_inference(
     attention_dir = output_dir / "attention_scores"
     prediction_rows: list[dict] = []
 
-    for bags, labels, bag_ids, patch_metadata_list in loader:
+    for bags, labels, bag_ids, patch_metadata_list in tqdm(loader):
 
         # Process one batch of bags
 
@@ -236,7 +275,7 @@ def run_inference(
     else:
         y_prob = pred_df["pred_prob"].to_numpy()
 
-    return compute_metrics(y_true, y_prob, y_pred, num_classes)
+    return compute_metrics(y_true, y_prob, threshold=threshold, num_classes=num_classes)
 
 
 def resolve_inference_data_config(
@@ -334,15 +373,14 @@ def main() -> None:
         output_dir=args.output_dir,
     )
 
-    metrics["decision_threshold"] = decision_threshold
+    metrics["threshold"] = decision_threshold
     metrics["num_classes"] = num_classes
+    metrics["model_folder"] = str(args.checkpoint_dir)
+    metrics["test_manifest"] = str(args.manifest)
     save_metrics(metrics, args.output_dir)
 
-    threshold_text = "None" if decision_threshold is None else f"{decision_threshold:.4f}"
-    print(
-        f"Final threshold={threshold_text} "
-        f"acc={metrics['accuracy']:.4f} auc={metrics['auc']:.4f}"
-    )
+    print_metrics("inference_set", metrics)
+
     print(f"Saved predictions to {args.output_dir / 'predictions.csv'}")
     print(f"Saved attention scores to {args.output_dir / 'attention_scores'}")
 
