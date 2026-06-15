@@ -8,7 +8,7 @@ from sklearn.model_selection import StratifiedGroupKFold
 
 RE_BAG_ID = re.compile(r"^RE_I_25_(\d+)_\d+_([A-Za-z]+)$")
 TN_BAG_ID = re.compile(r"^TN_(\d+)_(\d+)_\d+$")
-BAG_ID_PATTERN = TN_BAG_ID
+BAG_ID_PATTERN = {"RE": RE_BAG_ID, "TN": TN_BAG_ID}
 
 DEFAULT_FEATURES_DIR = Path("/home/ubuntu/giodir/digitalPathology/data/features/uni_features_TN")
 DEFAULT_LABELS_CSV = Path("/home/ubuntu/giodir/digitalPathology/data/labels/tn_base_labels/tn_base_labels_tn.csv")
@@ -65,7 +65,17 @@ def validate_ratios(train_ratio: float, val_ratio: float, test_ratio: float) -> 
 
 def _parse_bag_id(bag_id: str) -> tuple[str, str]:
 	# Extract patient_id and subregion_id from bag_id using regex.
-	match = BAG_ID_PATTERN.match(bag_id)
+	
+	match = None
+	for prefix, pattern in BAG_ID_PATTERN.items():
+		if bag_id.startswith(prefix):
+			match = pattern.match(bag_id)
+			break
+	else:
+		raise ValueError(
+			f"Bag id '{bag_id}' does not start with a recognized prefix ({', '.join(BAG_ID_PATTERN.keys())})."
+		)
+	
 	if not match:
 		raise ValueError(
 			f"Bag id '{bag_id}' does not match expected pattern."

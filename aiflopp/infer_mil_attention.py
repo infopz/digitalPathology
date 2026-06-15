@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import sys
 
+import yaml
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
@@ -23,7 +24,7 @@ if __package__ in {None, ""}:
     sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from aiflopp.datasets import MILBagDataset, collate_bags
-from aiflopp.feature_utils import HandcraftedFeatureScaler
+from aiflopp.feature_utils import HandcraftedFeatureScaler, infer_input_dim
 from aiflopp.models import MODEL_REGISTRY
 from aiflopp.train_mil_attention import print_metrics
 
@@ -48,13 +49,13 @@ def parse_args() -> argparse.Namespace:
         "--features-root",
         type=Path,
         default=None,
-        help="Optional override for the deep feature root saved in checkpoint metadata.",
+        help="Optional override for the deep feature root saved in checkpoint config.",
     )
     parser.add_argument(
         "--handcrafted-features-root",
         type=Path,
         default=None,
-        help="Optional override for the handcrafted feature root saved in checkpoint metadata.",
+        help="Optional override for the handcrafted feature root saved in checkpoint config.",
     )
     parser.add_argument("--output-dir", type=Path, default=default_output_dir)
     parser.add_argument("--batch-size", type=int, default=32)
@@ -63,28 +64,29 @@ def parse_args() -> argparse.Namespace:
 
 def load_checkpoint_config(checkpoint_dir: Path) -> tuple[argparse.Namespace, dict]:
     """
-    Load the checkoint metadata.json file and extract the model_details that contains the model configurations.
+    Load the checkpoint config.yaml file and extract the model configuration.
     
     Returns:
         model_args (argparse.Namespace): model configuration parameters used to build the model
-        metadata (dict): the full metadata from the checkpoint
+        config (dict): the full checkpoint config
     """
 
-    metadata_path = checkpoint_dir / "metadata.json"
-    if not metadata_path.exists():
-        raise FileNotFoundError(f"Missing metadata file: {metadata_path}")
+    config_path = checkpoint_dir / "config.yaml"
+    if not config_path.exists():
+        raise FileNotFoundError(f"Missing config file: {config_path}")
 
-    with open(metadata_path) as f:
-        metadata = json.load(f)
+    with open(config_path) as f:
+        config = yaml.safe_load(f) or {}
+    if not isinstance(config, dict):
+        raise ValueError("Checkpoint config.yaml must contain a mapping of argument names to values.")
 
-    model_details = metadata.get("model_details", {})
-    model_type = model_details.get("model_type")
+    model_type = config.get("model_type")
     if model_type not in MODEL_REGISTRY:
-        raise ValueError(f"Unsupported model_type in metadata: {model_type}")
+        raise ValueError(f"Unsupported model_type in config: {model_type}")
 
-    model_args = argparse.Namespace(**model_details)
+    model_args = argparse.Namespace(**config)
 
-    return model_args, metadata
+    return model_args, config
 
 
 def save_metrics(metrics: dict, output_dir: Path) -> None:
@@ -280,25 +282,19 @@ def run_inference(
 
 def resolve_inference_data_config(
     args: argparse.Namespace,
-    metadata: dict,
+    config: dict,
 ) -> tuple[str, Path, Path | None, HandcraftedFeatureScaler | None, float | None]:
-    data_details = metadata.get("data_details", {})
-    training_details = metadata.get("training_details", {})
-
-    feature_mode = data_details.get("feature_mode", "deep")
-    features_root_value = args.features_root or data_details.get("features_root")
+    feature_mode = config.get("feature_mode", "deep")
+    features_root_value = args.features_root or config.get("features_root")
     if features_root_value is None:
-        raise ValueError("Deep feature root is missing from both CLI arguments and checkpoint metadata.")
+        raise ValueError("Deep feature root is missing from both CLI arguments and checkpoint config.")
 
     handcrafted_root_value = args.handcrafted_features_root
     if handcrafted_root_value is None:
-        handcrafted_root_value = data_details.get("handcrafted_features_root")
+        handcrafted_root_value = config.get("handcrafted_features_root")
 
-    handcrafted_scaler = HandcraftedFeatureScaler.from_metadata(
-        data_details.get("handcrafted_scaler")
-    )
-    threshold_value = training_details.get("decision_threshold", 0.5)
-    decision_threshold = None if threshold_value is None else float(threshold_value)
+    handcrafted_scaler = load_handcrafted_scaler(args.checkpoint_dir, feature_mode)
+    decision_threshold = load_decision_threshold(args.checkpoint_dir, int(config.get("num_classes", 2)))
 
     return (
         feature_mode,
@@ -307,6 +303,43 @@ def resolve_inference_data_config(
         handcrafted_scaler,
         decision_threshold,
     )
+
+
+def load_handcrafted_scaler(
+    checkpoint_dir: Path,
+    feature_mode: str,
+) -> HandcraftedFeatureScaler | None:
+    if feature_mode not in {"handcrafted", "concat"}:
+        return None
+
+    scaler_path = checkpoint_dir / "handcrafted_scaler.npz"
+    if not scaler_path.exists():
+        raise FileNotFoundError(f"Missing handcrafted scaler file: {scaler_path}")
+
+    with np.load(scaler_path) as data:
+        return HandcraftedFeatureScaler(
+            mean=np.asarray(data["mean"], dtype=np.float32),
+            scale=np.asarray(data["scale"], dtype=np.float32),
+        )
+
+
+def load_decision_threshold(checkpoint_dir: Path, num_classes: int) -> float | None:
+    """
+    Loads from the metrics file the best decision threshold for binary classification.
+    """
+
+    if is_multiclass_task(num_classes):
+        return None
+
+    metrics_path = checkpoint_dir / "metrics.json"
+    if not metrics_path.exists():
+        return 0.5
+
+    with open(metrics_path) as f:
+        metrics = json.load(f)
+
+    threshold_value = metrics.get("decision_threshold", 0.5)
+    return 0.5 if threshold_value is None else float(threshold_value)
 
 
 def main() -> None:
@@ -321,11 +354,9 @@ def main() -> None:
         raise ValueError(f"Manifest missing columns: {missing}")
 
     # Load and validate model config from checkpoint
-    model_args, metadata = load_checkpoint_config(args.checkpoint_dir)
-    training_details = metadata.get("training_details", {})
-    num_classes = int(getattr(model_args, "num_classes", training_details.get("num_classes", 2)))
+    model_args, config = load_checkpoint_config(args.checkpoint_dir)
+    num_classes = int(getattr(model_args, "num_classes", 2))
     model_entry = MODEL_REGISTRY[model_args.model_type]
-    model_entry["validate"](model_args)
 
     (
         feature_mode,
@@ -333,7 +364,16 @@ def main() -> None:
         handcrafted_features_root,
         handcrafted_scaler,
         decision_threshold,
-    ) = resolve_inference_data_config(args, metadata)
+    ) = resolve_inference_data_config(args, config)
+
+    model_args.input_dim = infer_input_dim(
+        manifest,
+        feature_mode=feature_mode,
+        deep_features_root=features_root,
+        handcrafted_features_root=handcrafted_features_root,
+    )
+    model_args.output_dim = 1 if not is_multiclass_task(num_classes) else num_classes
+    model_entry["validate"](model_args)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     checkpoint_path = args.checkpoint_dir / "best_model.pth"

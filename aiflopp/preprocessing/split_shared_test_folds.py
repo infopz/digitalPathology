@@ -7,7 +7,9 @@ import pandas as pd
 from sklearn.model_selection import StratifiedGroupKFold
 
 
-BAG_ID_PATTERN = re.compile(r"^RE_I_25_(\d+)_\d+_([A-Za-z]+)$")
+RE_BAG_ID = re.compile(r"^RE_I_25_(\d+)_\d+_([A-Za-z]+)$")
+TN_BAG_ID = re.compile(r"^TN_(\d+)_(\d+)_\d+$")
+BAG_ID_PATTERN = {"RE": RE_BAG_ID, "TN": TN_BAG_ID}
 
 DEFAULT_FEATURES_DIR = Path("data/uni_features_RE_common")
 DEFAULT_LABELS_CSV = Path("data/alice/bag_labels.csv")
@@ -67,12 +69,23 @@ def validate_args(test_ratio: float, n_folds: int) -> None:
 
 
 def _parse_bag_id(bag_id: str) -> tuple[str, str]:
-    match = BAG_ID_PATTERN.match(bag_id)
-    if not match:
-        raise ValueError(
-            f"Bag id '{bag_id}' does not match expected pattern RE_I_25_<patient_id>_<subregion_id>."
-        )
-    return match.group(1), match.group(2)
+	# Extract patient_id and subregion_id from bag_id using regex.
+	
+	match = None
+	for prefix, pattern in BAG_ID_PATTERN.items():
+		if bag_id.startswith(prefix):
+			match = pattern.match(bag_id)
+			break
+	else:
+		raise ValueError(
+			f"Bag id '{bag_id}' does not start with a recognized prefix ({', '.join(BAG_ID_PATTERN.keys())})."
+		)
+	
+	if not match:
+		raise ValueError(
+			f"Bag id '{bag_id}' does not match expected pattern."
+		)
+	return match.group(1), match.group(2)
 
 
 def load_filtered_manifest(labels_csv: Path, features_dir: Path) -> pd.DataFrame:
@@ -81,6 +94,8 @@ def load_filtered_manifest(labels_csv: Path, features_dir: Path) -> pd.DataFrame
     missing = required_cols - set(labels_df.columns)
     if missing:
         raise ValueError(f"Labels CSV missing columns: {missing}")
+
+    labels_df = labels_df.dropna(subset=["bag_id", "label"])
 
     if labels_df["bag_id"].duplicated().any():
         dupes = labels_df.loc[labels_df["bag_id"].duplicated(), "bag_id"].head(5).tolist()

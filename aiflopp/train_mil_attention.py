@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
+import yaml
 from sklearn.metrics import (
     accuracy_score,
     balanced_accuracy_score,
@@ -29,6 +30,10 @@ from aiflopp.models import AVAILABLE_MODEL_TYPES, MODEL_REGISTRY
 
 
 def parse_args() -> argparse.Namespace:
+    config_parser = argparse.ArgumentParser(add_help=False)
+    config_parser.add_argument("--config", type=Path, default=None, help="Path to a YAML config file.")
+    config_args, _ = config_parser.parse_known_args()
+
     default_train_manifest = Path(
         "/home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_mRT_binary_diff/train_manifest.csv"
     )
@@ -46,7 +51,8 @@ def parse_args() -> argparse.Namespace:
     default_output_dir = Path("aiflopp/outputs/merged_RT/binary_diff_first")
 
     parser = argparse.ArgumentParser(
-        description="Train a MIL attention model on subregion patch features."
+        description="Train a MIL attention model on subregion patch features.",
+        parents=[config_parser],
     )
 
     # Input/output paths
@@ -123,6 +129,17 @@ def parse_args() -> argparse.Namespace:
         help="Validation metric used to choose the final decision threshold.",
     )
     
+    if config_args.config is not None:
+        with config_args.config.open("r") as f:
+            config = yaml.safe_load(f) or {}
+        if not isinstance(config, dict):
+            raise ValueError("YAML config must contain a mapping of argument names to values.")
+        valid_keys = {action.dest for action in parser._actions}
+        unknown_keys = sorted(set(config) - valid_keys)
+        if unknown_keys:
+            parser.error(f"Unknown config option(s): {', '.join(unknown_keys)}")
+        parser.set_defaults(**config)
+
     return parser.parse_args()
 
 
@@ -561,44 +578,55 @@ def save_model_and_metadata(
     
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Save metadata
-    metadata_dict = {
-        "model_details": {
-            "model_type": args.model_type,
-            **model_config,
-        },
-        "training_details": {
-            "epochs": args.epochs,
-            "batch_size": args.batch_size,
-            "learning_rate": args.lr,
-            "weight_decay": args.weight_decay,
-            "max_bag_size": args.max_bag_size,
-            "num_classes": args.num_classes,
-            "pos_weight": args.pos_weight,
-            "class_weights": args.class_weights,
-            "threshold_metric": args.threshold_metric,
-            "decision_threshold": args.decision_threshold,
-        },
-        "data_details": {
-            "train_manifest": str(args.train_manifest),
-            "val_manifest": str(args.val_manifest),
-            "test_manifest": str(args.test_manifest),
-            "features_root": str(args.features_root),
-            "feature_mode": args.feature_mode,
-            "handcrafted_features_root": (
-                str(args.handcrafted_features_root)
-                if args.handcrafted_features_root is not None
-                else None
-            ),
-            "handcrafted_scaler": (
-                handcrafted_scaler.to_metadata() if handcrafted_scaler is not None else None
-            ),
-        }
-    }
-    metadata_path = output_dir / "metadata.json"
-    with open(metadata_path, "w") as f:
-        json.dump(metadata_dict, f, indent=4)
-    print(f"Saved training metadata to {metadata_path}")
+    def yaml_safe(value):
+        if isinstance(value, Path):
+            return str(value)
+        if isinstance(value, np.generic):
+            return value.item()
+        if isinstance(value, dict):
+            return {key: yaml_safe(val) for key, val in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [yaml_safe(item) for item in value]
+        return value
+
+    config_keys = [
+        "train_manifest",
+        "val_manifest",
+        "test_manifest",
+        "features_root",
+        "handcrafted_features_root",
+        "output_dir",
+        "model_type",
+        "attention_dim",
+        "hidden_dim",
+        "num_classes",
+        "dropout",
+        "feature_mode",
+        "epochs",
+        "batch_size",
+        "lr",
+        "weight_decay",
+        "patience",
+        "max_bag_size",
+        "device",
+        "num_workers",
+        "seed",
+        "threshold_metric",
+    ]
+    used_config = {key: yaml_safe(getattr(args, key)) for key in config_keys}
+    config_path = output_dir / "config.yaml"
+    with open(config_path, "w") as f:
+        yaml.safe_dump(used_config, f, sort_keys=False)
+    print(f"Saved resolved training config to {config_path}")
+
+    if handcrafted_scaler is not None:
+        scaler_path = output_dir / "handcrafted_scaler.npz"
+        np.savez(
+            scaler_path,
+            mean=handcrafted_scaler.mean,
+            scale=handcrafted_scaler.scale,
+        )
+        print(f"Saved handcrafted scaler to {scaler_path}")
 
     # Save model checkpoint
     save_path = output_dir / "best_model.pth"

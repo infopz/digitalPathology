@@ -1,0 +1,29 @@
+# Input/output paths
+train_manifest: /home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_mRT_binary_diff/train_manifest.csv
+val_manifest: /home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_mRT_binary_diff/val_manifest.csv
+test_manifest: /home/ubuntu/giodir/digitalPathology/data/manifests/afpp_manifest_mRT_binary_diff/test_manifest.csv
+features_root: /home/ubuntu/giodir/digitalPathology/data/features/uni_features_merged_RE_TN
+handcrafted_features_root: null
+output_dir: aiflopp/outputs/merged_RT/binary_diff_first
+
+# Model hyperparameters
+model_type: base_mil
+attention_dim: 128
+hidden_dim: 128
+num_classes: 2
+dropout: 0.25
+feature_mode: deep
+
+# Training hyperparameters
+epochs: 50
+batch_size: 8
+lr: 3.0e-4
+weight_decay: 2.0e-4
+patience: 10
+max_bag_size: 1024
+
+# Runtime/settings
+device: cuda
+num_workers: 4
+seed: 7
+threshold_metric: balanced_acc
