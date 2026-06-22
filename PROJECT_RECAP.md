@@ -17,6 +17,7 @@ The preprocessing utilities are in `aiflopp/preprocessing`.
 - `extract_bag_features.py` extracts or organizes patch-level features into bag-level `.npz` files.
 - `split_train_test.py` creates patient-level train/validation/test manifests.
 - `split_shared_test_folds.py` creates multiple train/validation folds with a shared patient-level test set for cross-validation.
+- `split_rotating_test_folds.py` creates folds where test and validation sets rotate, so each patient is tested once and validated once.
 
 Generated manifest files contain:
 
@@ -95,7 +96,7 @@ val_manifest.csv
 test_manifest.csv
 ```
 
-The test manifest can be repeated inside each fold folder. The wrapper aggregates fold metrics and writes:
+The folds can use either a shared test set or rotating test sets. The wrapper aggregates fold metrics and writes:
 
 - `cv_summary.json`
 - `cv_summary.csv`
@@ -134,6 +135,14 @@ Inference outputs:
 
 The inference script reads the trained config from `config.yaml`, infers the feature input dimension from the inference manifest/features, and loads `handcrafted_scaler.npz` when needed.
 
+Cross-validation inference is implemented in:
+
+```bash
+aiflopp/infer_mil_attention_cv.py
+```
+
+It runs inference with every fold model, skips attention-score export by default, aggregates per-model metrics as mean/std, and computes final predictions by majority voting.
+
 ### Attention Visualization
 
 Attention heatmap plotting is implemented in:
@@ -171,10 +180,10 @@ Configs are intentionally flat and contain only arguments accepted by `train_mil
 ## Typical Workflow
 
 1. Extract or prepare bag-level `.npz` feature files.
-2. Create patient-level manifests with `split_train_test.py` or `split_shared_test_folds.py`.
+2. Create patient-level manifests with `split_train_test.py`, `split_shared_test_folds.py`, or `split_rotating_test_folds.py`.
 3. Train a MIL model with `train_mil_attention.py` or run cross-validation with `train_mil_attention_cv.py`.
 4. Evaluate saved metrics and predictions.
-5. Run inference on new manifests with `infer_mil_attention.py`.
+5. Run inference on new manifests with `infer_mil_attention.py` or ensemble fold models with `infer_mil_attention_cv.py`.
 6. Visualize attention maps with `plot_attention_heatmap.py`.
 
 ## Current Output Artifacts
@@ -190,4 +199,4 @@ test_predictions.csv
 handcrafted_scaler.npz  # when needed
 ```
 
-Cross-validation runs produce one such folder per fold plus aggregate summaries.
+Cross-validation training produces one such folder per fold plus aggregate summaries. Cross-validation inference produces per-model metrics, mean/std summaries, and majority-vote predictions.
