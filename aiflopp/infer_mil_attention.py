@@ -59,6 +59,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--output-dir", type=Path, default=default_output_dir)
     parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument(
+        "--no-attention-scores",
+        action="store_true",
+        help="Do not save per-bag attention score CSV files.",
+    )
     return parser.parse_args()
 
 
@@ -220,10 +225,11 @@ def run_inference(
     threshold: float | None,
     num_classes: int,
     output_dir: Path,
+    save_attention: bool = True,
 ) -> dict:
     model.eval()
 
-    attention_dir = output_dir / "attention_scores"
+    attention_dir = output_dir / "attention_scores" if save_attention else None
     prediction_rows: list[dict] = []
 
     for bags, labels, bag_ids, patch_metadata_list in tqdm(loader):
@@ -259,12 +265,13 @@ def run_inference(
                 prediction_row["pred_prob"] = float(probs[row_idx])
 
             prediction_rows.append(prediction_row)
-            save_attention_scores(
-                bag_id=bag_id,
-                attention_weights=weights,
-                patch_metadata=patch_metadata,
-                attention_dir=attention_dir,
-            )
+            if save_attention:
+                save_attention_scores(
+                    bag_id=bag_id,
+                    attention_weights=weights,
+                    patch_metadata=patch_metadata,
+                    attention_dir=attention_dir,
+                )
 
     pred_df = pd.DataFrame(prediction_rows)
     pred_df.to_csv(output_dir / "predictions.csv", index=False)
@@ -411,6 +418,7 @@ def main() -> None:
         threshold=decision_threshold,
         num_classes=num_classes,
         output_dir=args.output_dir,
+        save_attention=not args.no_attention_scores,
     )
 
     metrics["threshold"] = decision_threshold
@@ -422,7 +430,10 @@ def main() -> None:
     print_metrics("inference_set", metrics)
 
     print(f"Saved predictions to {args.output_dir / 'predictions.csv'}")
-    print(f"Saved attention scores to {args.output_dir / 'attention_scores'}")
+    if args.no_attention_scores:
+        print("Skipped attention score export")
+    else:
+        print(f"Saved attention scores to {args.output_dir / 'attention_scores'}")
 
 
 if __name__ == "__main__":

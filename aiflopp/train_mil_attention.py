@@ -502,7 +502,8 @@ def train(
     args: argparse.Namespace,
     device: torch.device,
     loss_weight: torch.Tensor,
-    best_metric: str = "auc",
+    best_metric: str = "balanced_acc",
+    secondary_metric: str = "auc"
 ):
     if is_multiclass_task(args.num_classes):
         criterion = nn.CrossEntropyLoss(weight=loss_weight)
@@ -515,7 +516,8 @@ def train(
 
     patience_max = args.patience
 
-    best_val = -float("inf")
+    best_val_primary = -float("inf")
+    best_val_secondary = -float("inf")
     best_state = None
     best_epoch = -1
     
@@ -548,11 +550,14 @@ def train(
             f"val_auc={val_metrics['auc']:.4f} "
         )
 
-        if val_metrics[best_metric] > best_val:
-            # Save new best model state
-            best_val = val_metrics[best_metric]
-            best_state = {k: v.cpu() for k, v in model.state_dict().items()}
-            best_epoch = epoch
+        if val_metrics[best_metric] >= best_val_primary:
+            secondary_metric = val_metrics.get(secondary_metric, -float("inf"))
+            if val_metrics[best_metric] > best_val_primary or secondary_metric > best_val_secondary:
+                # If the primary improved or (the primary is same and) secondary improved, update the best state
+                best_val_primary = val_metrics[best_metric]
+                best_val_secondary = secondary_metric
+                best_state = {k: v.cpu() for k, v in model.state_dict().items()}
+                best_epoch = epoch
         else:
             # Check early stopping
             if epoch - best_epoch >= patience_max:
@@ -563,7 +568,7 @@ def train(
                 break
 
     if best_state is not None:
-        print(f"Best validation epoch {best_epoch} with {best_metric}: {best_val:.4f}. Loading best model state.")
+        print(f"Best validation epoch {best_epoch} with {best_metric}: {best_val_primary:.4f}. Loading best model state.")
         model.load_state_dict(best_state)
     return model
 
