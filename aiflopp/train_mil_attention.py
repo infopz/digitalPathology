@@ -347,6 +347,16 @@ def search_best_threshold(
     thresholds: np.ndarray | None = None,
     objective: str = "f2",
 ) -> tuple[float, dict, list[dict]]:
+    """
+    Given a set of true and predicted labels (as probs),
+    search the best threshold that maximizes the given objective metric.
+
+    Returns:
+        best_threshold (float): The best threshold value.
+        best_metrics (dict): Metrics for the best threshold.
+        all_results (list[dict]): Metrics for all evaluated thresholds.
+    """
+
     if thresholds is None:
         thresholds = np.linspace(0.05, 0.95, 19)
 
@@ -372,6 +382,7 @@ def search_best_threshold(
         same_score = np.isclose(current_score, best_score)
 
         # Check the best metric first, than use recall and precision as tie-breakers
+        # FIXME: si potrebbe usare la second-best-metric gia' usata in train
         if current_score > best_score:
             best_threshold = float(threshold)
             best_metrics = metrics
@@ -580,7 +591,7 @@ def save_model_and_metadata(
     model: nn.Module,
     output_dir: Path,
     args: argparse.Namespace,
-    handcrafted_scaler: HandcraftedFeatureScaler | None,
+    handcrafted_scaler: HandcraftedFeatureScaler | None = None,
 ) -> None:
     
     output_dir.mkdir(parents=True, exist_ok=True)

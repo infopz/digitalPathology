@@ -1,0 +1,23 @@
+# Input/output paths
+features_root: /home/ubuntu/giodir/digitalPathology/data/features/uni_features_merged_RE_TN
+output_dir: aiflopp/outputs/merged_RT/binary_diff_first
+
+# Model hyperparameters
+model_type: base_mil
+attention_dim: 128
+hidden_dim: 64
+dropout: 0.25
+
+# Training hyperparameters
+epochs: 2
+batch_size: 8
+lr: 5e-4
+weight_decay: 1e-4
+patience: 10
+max_bag_size: 0
+
+# Runtime/settings
+device: cuda
+num_workers: 4
+seed: 7
+threshold_metric: balanced_acc
