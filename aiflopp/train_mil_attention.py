@@ -169,6 +169,9 @@ def is_multiclass_task(num_classes: int) -> bool:
 
 
 def prepare_label_space(manifests: list[pd.DataFrame], requested_num_classes: int) -> int:
+    # Validate the manifest labels
+    # Return the number of classes to use for training and evaluation
+    
     labels: list[np.ndarray] = []
 
     # Parse all labels from manifests
@@ -577,7 +580,6 @@ def save_model_and_metadata(
     model: nn.Module,
     output_dir: Path,
     args: argparse.Namespace,
-    model_config: dict,
     handcrafted_scaler: HandcraftedFeatureScaler | None,
 ) -> None:
     
@@ -728,9 +730,6 @@ def main() -> None:
         args.class_weights = None
         args.decision_threshold = 0.5
 
-    # Filter args to keep only those used by model initialization
-    model_config = model_entry["config"](args)
-
     train_ds = MILBagDataset(
         train_manifest,
         args.features_root,
@@ -863,7 +862,6 @@ def main() -> None:
         model,
         args.output_dir,
         args,
-        model_config,
         handcrafted_scaler=handcrafted_scaler,
     )
 

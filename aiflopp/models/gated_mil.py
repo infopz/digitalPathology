@@ -72,14 +72,3 @@ def build_gated_mil(args: argparse.Namespace) -> nn.Module:
         dropout=args.dropout,
         output_dim=getattr(args, "output_dim", getattr(args, "num_classes", 1)),
     )
-
-
-def get_gated_mil_config(args: argparse.Namespace) -> dict:
-    return {
-        "input_dim": args.input_dim,
-        "attention_dim": args.attention_dim,
-        "hidden_dim": args.hidden_dim,
-        "dropout": args.dropout,
-        "num_classes": getattr(args, "num_classes", 1),
-        "output_dim": getattr(args, "output_dim", getattr(args, "num_classes", 1)),
-    }
