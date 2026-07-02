@@ -115,19 +115,35 @@ def parse_args() -> argparse.Namespace:
         help="If >0, randomly subsample each bag to this many patches to stabilize batches.",
     )
 
+    # Metrics and evaluation
+    parser.add_argument(
+        "--epoch-selection-metric",
+        type=str,
+        choices=("acc", "precision", "recall", "f2", "balanced_acc", "auc"),
+        default="auc",
+        help="Metric used to select the best epoch during training.",
+    )
+    parser.add_argument(
+        "--epoch-selection-secondary-metric",
+        type=str,
+        choices=("acc", "precision", "recall", "f2", "balanced_acc", "auc"),
+        default="balanced_acc",
+        help="Secondary metric used to break ties when selecting the best epoch.",
+    )
+    parser.add_argument(
+        "--threshold-metric",
+        type=str,
+        choices=("acc", "precision", "recall", "f2", "balanced_acc", "auc"),
+        default="balanced_acc",
+        help="Validation metric used to choose the final decision threshold.",
+    )
+
     # Other settings
     parser.add_argument(
         "--device", default="cuda" if torch.cuda.is_available() else "cpu"
     )
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--seed", type=int, default=7)
-    parser.add_argument(
-        "--threshold-metric",
-        type=str,
-        choices=("acc", "precision", "recall", "f2", "balanced_acc"),
-        default="balanced_acc",
-        help="Validation metric used to choose the final decision threshold.",
-    )
     
     if config_args.config is not None:
         with config_args.config.open("r") as f:
@@ -345,7 +361,8 @@ def search_best_threshold(
     y_true: np.ndarray,
     y_prob: np.ndarray,
     thresholds: np.ndarray | None = None,
-    objective: str = "f2",
+    objective: str = "balanced_acc",
+    objective_secondary: str = "auc",
 ) -> tuple[float, dict, list[dict]]:
     """
     Given a set of true and predicted labels (as probs),
@@ -369,6 +386,8 @@ def search_best_threshold(
 
         if objective not in metrics:
             raise ValueError(f"Objective metric '{objective}' not found in computed metrics.")
+        if objective_secondary not in metrics:
+            raise ValueError(f"Secondary objective metric '{objective_secondary}' not found in computed metrics.")
 
         all_results.append(metrics)
 
@@ -381,19 +400,11 @@ def search_best_threshold(
         best_score = best_metrics[objective]
         same_score = np.isclose(current_score, best_score)
 
-        # Check the best metric first, than use recall and precision as tie-breakers
-        # FIXME: si potrebbe usare la second-best-metric gia' usata in train
+        # Check the best metric first, than use the secondary metric to break ties
         if current_score > best_score:
             best_threshold = float(threshold)
             best_metrics = metrics
-        elif same_score and metrics["recall"] > best_metrics["recall"]:
-            best_threshold = float(threshold)
-            best_metrics = metrics
-        elif (
-            same_score
-            and np.isclose(metrics["recall"], best_metrics["recall"])
-            and metrics["precision"] > best_metrics["precision"]
-        ):
+        elif same_score and metrics[objective_secondary] > best_metrics[objective_secondary]:
             best_threshold = float(threshold)
             best_metrics = metrics
 
@@ -539,11 +550,22 @@ def train(
         model.train()
         epoch_loss = 0.0
 
+        train_predictions = []
+        train_labels = []
+
         for bags, labels, _, _ in tqdm(train_loader, desc=f"Epoch {epoch}"):
             bags = [b.to(device) for b in bags]
             labels = labels.to(device)
 
             logits, _ = model(bags)
+
+            if is_multiclass_task(args.num_classes):
+                train_probs = torch.softmax(logits.detach(), dim=1)
+            else:
+                train_probs = torch.sigmoid(logits.detach())
+            train_predictions.append(train_probs.cpu())
+            train_labels.append(labels.detach().cpu())
+
             if is_multiclass_task(args.num_classes):
                 loss = criterion(logits, labels.long())
             else:
@@ -556,20 +578,32 @@ def train(
             epoch_loss += loss.item() * len(bags)
 
         avg_loss = epoch_loss / len(train_loader.dataset)
+
+        train_metrics = compute_metrics(
+            y_true=torch.cat(train_labels).numpy(),
+            y_prob=torch.cat(train_predictions).numpy(),
+            num_classes=args.num_classes,
+        )
+        print(
+            f"Epoch {epoch}: loss={avg_loss:.3f} "
+            f"train_recall={train_metrics['recall']:.3f} "
+            f"train_bal_acc={train_metrics['balanced_acc']:.3f} "
+            f"train_auc={train_metrics['auc']:.3f} "
+        )
         val_metrics = evaluate(model, val_loader, device, num_classes=args.num_classes)
         print(
-            f"Epoch {epoch}: loss={avg_loss:.4f} "
-            f"val_recall={val_metrics['recall']:.4f} "
-            f"val_bal_acc={val_metrics['balanced_acc']:.4f} "
-            f"val_auc={val_metrics['auc']:.4f} "
+            f"Epoch {epoch}:             "
+            f" val_recall={val_metrics['recall']:.3f} "
+            f"  val_bal_acc={val_metrics['balanced_acc']:.3f} "
+            f"  val_auc={val_metrics['auc']:.3f} "
         )
 
         if val_metrics[best_metric] >= best_val_primary:
-            secondary_metric = val_metrics.get(secondary_metric, -float("inf"))
-            if val_metrics[best_metric] > best_val_primary or secondary_metric > best_val_secondary:
+            secondary_score = val_metrics.get(secondary_metric, -float("inf"))
+            if val_metrics[best_metric] > best_val_primary or secondary_score > best_val_secondary:
                 # If the primary improved or (the primary is same and) secondary improved, update the best state
                 best_val_primary = val_metrics[best_metric]
-                best_val_secondary = secondary_metric
+                best_val_secondary = secondary_score
                 best_state = {k: v.cpu() for k, v in model.state_dict().items()}
                 best_epoch = epoch
         else:
@@ -626,10 +660,12 @@ def save_model_and_metadata(
         "weight_decay",
         "patience",
         "max_bag_size",
+        "epoch_selection_metric",
+        "epoch_selection_secondary_metric",
+        "threshold_metric",
         "device",
         "num_workers",
         "seed",
-        "threshold_metric",
     ]
     used_config = {key: yaml_safe(getattr(args, key)) for key in config_keys}
     config_path = output_dir / "config.yaml"
@@ -648,8 +684,14 @@ def save_model_and_metadata(
 
     # Save model checkpoint
     save_path = output_dir / "best_model.pth"
-    torch.save(model.state_dict(), save_path)
-    print(f"Saved best model to {save_path}")
+    save_model(model, save_path)
+
+
+def save_model(model: nn.Module, output_path: Path) -> None:
+    # Save model checkpoint to the given folder
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(model.state_dict(), output_path)
+    print(f"Saved model to {output_path}")
 
 
 def save_model_metrics(metrics: dict, output_dir: Path) -> None:
@@ -663,7 +705,11 @@ def save_model_metrics(metrics: dict, output_dir: Path) -> None:
     print(f"Saved evaluation metrics to {metrics_path}")
 
 
-def print_metrics(split_name: str, metrics: dict) -> None:
+def print_metrics(metrics: dict, split_name: str = "test", compact=False) -> None:
+    if compact:
+        print(f"{split_name} metrics: bal_acc: {metrics['balanced_acc']:.3f}, pr: {metrics['precision']:.3f}, auc: {metrics['auc']:.3f}")
+        return
+
     print(f"Final {split_name} metrics:")
     if metrics["threshold"] is None:
         print("  threshold: None")
@@ -798,30 +844,46 @@ def main() -> None:
     model = model_entry["build"](args).to(device)
 
     # Train model
-    model = train(model, train_loader, val_loader, args, device, loss_weight, best_metric=args.threshold_metric)
+    model = train(
+        model=model,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        args=args,
+        device=device,
+        loss_weight=loss_weight,
+        best_metric=args.epoch_selection_metric,
+        secondary_metric=args.epoch_selection_secondary_metric,
+    )
 
     val_bag_ids, val_y_true, val_y_prob = collect_predictions(
-        model,
-        val_loader,
-        device,
-        args.num_classes,
+        model=model,
+        loader=val_loader,
+        device=device,
+        num_classes=args.num_classes,
     )
     if is_multiclass_task(args.num_classes):
         best_threshold = None
         val_threshold_search = []
         val_metrics = compute_metrics(
-            val_y_true,
-            val_y_prob,
+            y_true=val_y_true,
+            y_prob=val_y_prob,
             threshold=None,
             num_classes=args.num_classes,
         )
         args.decision_threshold = None
     else:
         # Tune the threshold on the validation predictions
+        # For tie break, use the epoch selection metric if its different from the threshold one, otherwise use the secondary
+        tie_breaking_metric = (
+            args.epoch_selection_metric
+            if args.epoch_selection_metric != args.threshold_metric
+            else args.epoch_selection_secondary_metric
+        )
         best_threshold, val_metrics, val_threshold_search = search_best_threshold(
-            val_y_true,
-            val_y_prob,
+            y_true=val_y_true,
+            y_prob=val_y_prob,
             objective=args.threshold_metric,
+            objective_secondary=tie_breaking_metric
         )
         args.decision_threshold = float(best_threshold)
 
@@ -848,16 +910,16 @@ def main() -> None:
     # Evaluate the model on test set using the selected threshold
     test_csv_path = args.output_dir / "test_predictions.csv"
     test_metrics = evaluate(
-        model,
-        test_loader,
-        device,
+        model=model,
+        loader=test_loader,
+        device=device,
         threshold=best_threshold,
         num_classes=args.num_classes,
         output_csv_path=test_csv_path,
     )
 
-    print_metrics("val", val_metrics)
-    print_metrics("test", test_metrics)
+    print_metrics(val_metrics, "val")
+    print_metrics(test_metrics, "test")
 
     # Save model and metrics
     metrics = {

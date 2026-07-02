@@ -1,0 +1,28 @@
+train_manifest: /home/ubuntu/giodir/digitalPathology/data/manifests/merged_RT/afpp_manifest_mRT_binary_diff/train_manifest.csv
+val_manifest: /home/ubuntu/giodir/digitalPathology/data/manifests/merged_RT/afpp_manifest_mRT_binary_diff/val_manifest.csv
+test_manifest: /home/ubuntu/giodir/digitalPathology/data/manifests/merged_RT/afpp_manifest_mRT_binary_diff/test_manifest.csv
+features_root: /home/ubuntu/giodir/digitalPathology/data/features/uni_features_merged_RE_TN
+handcrafted_features_root: null
+output_dir: aiflopp/outputs/merged_RT/diff_binary_gated2
+
+model_type: gated_mil
+attention_dim: 128
+hidden_dim: 64
+num_classes: 2
+dropout: 0.5
+feature_mode: deep
+
+epochs: 50
+batch_size: 32
+lr: 5.0e-4
+weight_decay: 1.0e-4
+patience: 7
+max_bag_size: 512
+
+epoch_selection_metric: balanced_acc
+epoch_selection_secondary_metric: auc
+threshold_metric: balanced_acc
+
+device: cuda
+num_workers: 4
+seed: 7
