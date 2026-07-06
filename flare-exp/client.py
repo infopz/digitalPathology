@@ -1,7 +1,7 @@
-from pathlib import Path
 import argparse
+import builtins
 import json
-import yaml
+from pathlib import Path
 
 from torch.utils.data import DataLoader
 import nvflare.client as flare
@@ -16,11 +16,10 @@ from aiflopp.train_mil_attention import (
     evaluate,
     print_metrics,
     save_predictions,
-    save_model_and_metadata,
+    save_model,
     search_best_threshold,
     seed_everything,
     train,
-    validate_output_dir
 ) 
 
 
@@ -30,30 +29,32 @@ MANIFEST_PATH = {
 }
 
 
-def parse_args():
-    config_parser = argparse.ArgumentParser(add_help=False)
-    config_parser.add_argument(
-        "--config",
-        type=Path,
-        default=Path("configs/client_config.yaml"),
-        help="Path to the client configuration file.",
-    )
-    config_args, _ = config_parser.parse_known_args()
+def prefix_prints(prefix: str) -> None:
+    # Override built-in print func to add client name prefix to all prints
+    base_print = builtins.print
 
+    def prefixed_print(*args, **kwargs):
+        base_print(f"[{prefix}]", *args, **kwargs)
+
+    builtins.print = prefixed_print
+
+
+def parse_args():
     parser = argparse.ArgumentParser(
         description="Train a MIL attention model on subregion patch features.",
-        parents=[config_parser],
     )
 
     # Input/output paths
     parser.add_argument(
         "--features-root",
         type=Path,
+        required=True,
         help="Root folder containing deep per-bag feature npz files.",
     )
     parser.add_argument(
         "--output-dir", 
         type=Path, 
+        required=True,
         help="Directory to save model checkpoints and logs."
     )
 
@@ -72,13 +73,16 @@ def parse_args():
         "--hidden-dim", type=int, default=64, help="Hidden size for final classifier."
     )
     parser.add_argument("--dropout", type=float, default=0.25)
+    parser.add_argument("--input-dim", type=int, default=1536)
+    parser.add_argument("--num-classes", type=int, default=2)
+    parser.add_argument("--output-dim", type=int, default=1)
 
     # Training hyperparameters
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--lr", type=float, default=5e-4, help="Adam learning rate.")
     parser.add_argument("--weight-decay", type=float, default=1e-4)
-    parser.add_argument("--patience", type=float, default=10, help="Number of epochs to wait for improvement.")
+    parser.add_argument("--patience", type=int, default=10, help="Number of epochs to wait for improvement.")
     parser.add_argument(
         "--max-bag-size",
         type=int,
@@ -87,30 +91,15 @@ def parse_args():
     )
 
     # Other settings
-    parser.add_argument(
-        "--device", default="cuda" if torch.cuda.is_available() else "cpu"
-    )
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument(
         "--threshold-metric",
         type=str,
-        choices=("acc", "precision", "recall", "f2", "balanced_acc"),
+        choices=("acc", "precision", "recall", "f2", "balanced_acc", "auc"),
         default="balanced_acc",
         help="Validation metric used to choose the final decision threshold.",
     )
-    
-    if config_args.config is not None:
-        with config_args.config.open("r") as f:
-            config = yaml.safe_load(f) or {}
-        if not isinstance(config, dict):
-            raise ValueError("YAML config must contain a mapping of argument names to values.")
-        valid_keys = {action.dest for action in parser._actions}
-        unknown_keys = sorted(set(config) - valid_keys)
-        if unknown_keys:
-            parser.error(f"Unknown config option(s): {', '.join(unknown_keys)}")
-        parser.set_defaults(**config)
-
     return parser.parse_args()
 
 
@@ -203,24 +192,20 @@ def evaluate_given_model(
 
 def main():
     args = parse_args()
-    args.output_dir = validate_output_dir(args.output_dir)
-
-    # Fixed args
-    args.num_classes = 2
-    args.output_dim = 1
-    args.input_dim = 1536
 
     seed_everything(args.seed)
 
-    device = torch.device(args.device)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Initalize Flare and get client_name
     flare.init()
     sys_info = flare.system_info()
     client_name = sys_info["site_name"]
-    print(f"{client_name} - Using device: {device}")
+    prefix_prints(client_name)
+    print(f"Using device: {device}")
 
-    args.output_dir = args.output_dir / client_name
+    args.output_dir = args.output_dir / client_name / "results"
+    Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
     # Load manifest based on client_name
     base_manifest_path = MANIFEST_PATH.get(client_name)
@@ -289,6 +274,7 @@ def main():
             # Submit model to server
             # TODO: probabilmente da fixare perche non gli devo dare l'ultimo (che potrebbe avere dei pesi random)
             #       ma caricarmi il migliore dal pth
+            print("Received submit model request from server.")
             flare.submit_model(flare.FLModel(params=model.cpu().state_dict()))
             continue
 
@@ -298,9 +284,10 @@ def main():
         model.to(device)
 
         round_num = input_model.current_round
-        print(f"{client_name} - Received model for round {round_num}")
+        print(f"Received model for round {round_num}")
 
         if flare.is_evaluate():
+            print("Received evaluate request from server.")
             # Evaluate the received model
             test_metrics = evaluate_given_model(
                 model,
@@ -309,7 +296,9 @@ def main():
                 device,
                 args,
             )
-            output_model = flare.FLModel(metrics={"balanced_accuracy": test_metrics["balanced_accuracy"]})
+            print(f"Requested evaluation metrics:")
+            print_metrics(test_metrics, split_name="received", compact=True)
+            output_model = flare.FLModel(metrics={"balanced_acc": test_metrics["balanced_acc"]})
             flare.send(output_model)
             continue
 
@@ -332,16 +321,16 @@ def main():
             csv_out_folder=round_out_dir / "predictions",
         )
 
-        print(f"{client_name} - Round {round_num} evaluation metrics:")
-        print_metrics(test_metrics)
+        print(f"Round {round_num} evaluation metrics:")
+        print_metrics(test_metrics, compact=True)
 
         # Save model and metrics
-        save_model_and_metadata(model, round_out_dir, args)
+        save_model(model, round_out_dir / "model.pth")
 
         # Send the model and metrics back to the server
         output_model = flare.FLModel(
             params=model.cpu().state_dict(),
-            metrics={"balanced_accuracy": test_metrics["balanced_accuracy"]},
+            metrics={"balanced_acc": test_metrics["balanced_acc"]},
         )
         flare.send(output_model)
 

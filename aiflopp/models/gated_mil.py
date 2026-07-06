@@ -51,7 +51,7 @@ class AttentionMILGated(nn.Module):
         return torch.stack(logits), attn_weights
 
 
-def validate_gated_mil_args(args: argparse.Namespace) -> None:
+def validate_gated_mil_args(args: argparse.Namespace) -> list[str]:
     if args.attention_dim <= 0:
         raise ValueError("--attention-dim must be > 0.")
     if args.hidden_dim <= 0:
@@ -62,6 +62,9 @@ def validate_gated_mil_args(args: argparse.Namespace) -> None:
         raise ValueError("--num-classes must be > 0.")
     if getattr(args, "output_dim", 1) <= 0:
         raise ValueError("Model output_dim must be > 0.")
+    
+    # Return the required args names
+    return ["input_dim", "attention_dim", "hidden_dim", "dropout", "output_dim"]
 
 
 def build_gated_mil(args: argparse.Namespace) -> nn.Module:

@@ -527,7 +527,7 @@ def train(
     args: argparse.Namespace,
     device: torch.device,
     loss_weight: torch.Tensor,
-    best_metric: str = "balanced_acc",
+    best_metric: str | None = None, # balanced_acc
     secondary_metric: str = "auc"
 ):
     if is_multiclass_task(args.num_classes):
@@ -597,6 +597,10 @@ def train(
             f"  val_bal_acc={val_metrics['balanced_acc']:.3f} "
             f"  val_auc={val_metrics['auc']:.3f} "
         )
+
+        if best_metric is None:
+            # Skip epoch selection and early stopping if no best_metric is specified
+            continue
 
         if val_metrics[best_metric] >= best_val_primary:
             secondary_score = val_metrics.get(secondary_metric, -float("inf"))
