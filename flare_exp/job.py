@@ -11,6 +11,18 @@ from nvflare.recipe.utils import add_cross_site_evaluation
 from aiflopp.models import AVAILABLE_MODEL_TYPES, MODEL_REGISTRY
 from aiflopp.train_mil_attention import validate_output_dir
 
+METRIC_CHOICES = ("acc", "precision", "recall", "f2", "balanced_acc", "auc")
+
+
+def optional_metric(value: str | None) -> str | None:
+    if value is None or value.lower() in {"none", "null"}:
+        return None
+    if value not in METRIC_CHOICES:
+        raise argparse.ArgumentTypeError(
+            f"invalid metric {value!r}; expected one of {', '.join(METRIC_CHOICES)} or null"
+        )
+    return value
+
 
 CLIENT_ARGS = (
     "features_root",
@@ -30,7 +42,9 @@ CLIENT_ARGS = (
     "max_bag_size",
     "num_workers",
     "seed",
-    "threshold_metric"
+    "key_metric",
+    "eval_threshold_metric",
+    "epoch_selection_metric",
 )
 
 
@@ -68,7 +82,7 @@ def parse_args() -> argparse.Namespace:
         help="Client site names expected to participate in each round.",
     )
     parser.add_argument("--num-rounds", "--num_rounds", dest="num_rounds", type=int, default=8)
-    parser.add_argument("--train-script", type=str, default="flare-exp/client.py")
+    parser.add_argument("--train-script", type=str, default="flare_exp/client.py")
     parser.add_argument("--job-name", type=str, default="mil-fedavg")
     parser.add_argument(
         "--cross-site-eval",
@@ -79,7 +93,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--key-metric",
         type=str,
-        default="balanced_accuracy",
+        choices=METRIC_CHOICES,
+        default="balanced_acc",
         help="Metric name sent by clients and used by the server to select the best global model.",
     )
 
@@ -107,11 +122,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument(
-        "--threshold-metric",
+        "--eval-threshold-metric",
         type=str,
-        choices=("acc", "precision", "recall", "f2", "balanced_acc", "auc"),
+        choices=METRIC_CHOICES,
         default="balanced_acc",
     )
+    parser.add_argument("--epoch-selection-metric", type=optional_metric, default=None)
 
     config = load_config(config_args.config)
     valid_keys = {action.dest for action in parser._actions}

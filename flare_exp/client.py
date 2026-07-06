@@ -20,23 +20,15 @@ from aiflopp.train_mil_attention import (
     search_best_threshold,
     seed_everything,
     train,
+    METRIC_CHOICES
 ) 
+from flare_exp.fl_utils import optional_metric, prefix_prints
 
 
 MANIFEST_PATH = {
     "reggio_client": Path("/home/ubuntu/giodir/digitalPathology/data/manifests/reggio_only/afpp_manifest_all_base"),
     "trento_client": Path("/home/ubuntu/giodir/digitalPathology/data/manifests/trento_only/afpp_manifest_tn_base")
 }
-
-
-def prefix_prints(prefix: str) -> None:
-    # Override built-in print func to add client name prefix to all prints
-    base_print = builtins.print
-
-    def prefixed_print(*args, **kwargs):
-        base_print(f"[{prefix}]", *args, **kwargs)
-
-    builtins.print = prefixed_print
 
 
 def parse_args():
@@ -94,11 +86,24 @@ def parse_args():
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument(
-        "--threshold-metric",
+        "--key-metric",
         type=str,
-        choices=("acc", "precision", "recall", "f2", "balanced_acc", "auc"),
+        choices=METRIC_CHOICES,
+        default="balanced_acc",
+        help="Metric sent to the server at the end of each round.",
+    )
+    parser.add_argument(
+        "--eval-threshold-metric",
+        type=str,
+        choices=METRIC_CHOICES,
         default="balanced_acc",
         help="Validation metric used to choose the final decision threshold.",
+    )
+    parser.add_argument(
+        "--epoch-selection-metric",
+        type=optional_metric,
+        default=None,
+        help="Metric used to select the best local epoch; null disables epoch selection.",
     )
     return parser.parse_args()
 
@@ -144,7 +149,7 @@ def evaluate_given_model(
     best_threshold, val_metrics, val_threshold_search = search_best_threshold(
         val_y_true,
         val_y_prob,
-        objective=args.threshold_metric,
+        objective=args.eval_threshold_metric,
     )
 
     # If csv_out_folder is provided, save predictions for val
@@ -178,7 +183,7 @@ def evaluate_given_model(
         metrics = {
             "num_classes": args.num_classes,
             "decision_threshold": best_threshold,
-            "threshold_metric": args.threshold_metric,
+            "eval_threshold_metric": args.eval_threshold_metric,
             "val": val_metrics,
             "test": test_metrics,
         }
@@ -298,14 +303,14 @@ def main():
             )
             print(f"Requested evaluation metrics:")
             print_metrics(test_metrics, split_name="received", compact=True)
-            output_model = flare.FLModel(metrics={"balanced_acc": test_metrics["balanced_acc"]})
+            output_model = flare.FLModel(metrics={args.key_metric: test_metrics[args.key_metric]})
             flare.send(output_model)
             continue
 
         # TODO: reuse the last lr and other hyperparameters from the previous round, or reset them?
 
         # Train model
-        model = train(model, train_loader, val_loader, args, device, loss_weight, best_metric=args.threshold_metric)
+        model = train(model, train_loader, val_loader, args, device, loss_weight, best_metric=args.epoch_selection_metric)
 
         # Evaluate
         round_out_dir = args.output_dir / f"round_{round_num}"
@@ -330,7 +335,7 @@ def main():
         # Send the model and metrics back to the server
         output_model = flare.FLModel(
             params=model.cpu().state_dict(),
-            metrics={"balanced_acc": test_metrics["balanced_acc"]},
+            metrics={args.key_metric: test_metrics[args.key_metric]},
         )
         flare.send(output_model)
 

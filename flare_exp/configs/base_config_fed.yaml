@@ -1,6 +1,6 @@
 # Input/output paths
 features_root: /home/ubuntu/giodir/digitalPathology/data/features/uni_features_merged_RE_TN
-output_dir: /home/ubuntu/giodir/digitalPathology/flare-exp/outputs/binary_diff_first
+output_dir: /home/ubuntu/giodir/digitalPathology/flare_exp/outputs/binary_diff_first
 
 # Model hyperparameters
 model_type: base_mil
@@ -24,7 +24,7 @@ client_list:
   - trento_client
   - reggio_client
 num_rounds: 2
-train_script: flare-exp/client.py
+train_script: flare_exp/client.py
 job_name: mil-fedavg
 cross_site_eval: false
 

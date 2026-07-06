@@ -28,6 +28,8 @@ from aiflopp.feature_utils import (
 )
 from aiflopp.models import AVAILABLE_MODEL_TYPES, MODEL_REGISTRY
 
+METRIC_CHOICES = ("acc", "precision", "recall", "recall_0", "f2", "balanced_acc", "auc")
+
 
 def parse_args() -> argparse.Namespace:
     config_parser = argparse.ArgumentParser(add_help=False)
@@ -119,21 +121,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--epoch-selection-metric",
         type=str,
-        choices=("acc", "precision", "recall", "f2", "balanced_acc", "auc"),
+        choices=METRIC_CHOICES,
         default="auc",
         help="Metric used to select the best epoch during training.",
     )
     parser.add_argument(
         "--epoch-selection-secondary-metric",
         type=str,
-        choices=("acc", "precision", "recall", "f2", "balanced_acc", "auc"),
+        choices=METRIC_CHOICES,
         default="balanced_acc",
         help="Secondary metric used to break ties when selecting the best epoch.",
     )
     parser.add_argument(
         "--threshold-metric",
         type=str,
-        choices=("acc", "precision", "recall", "f2", "balanced_acc", "auc"),
+        choices=METRIC_CHOICES,
         default="balanced_acc",
         help="Validation metric used to choose the final decision threshold.",
     )
