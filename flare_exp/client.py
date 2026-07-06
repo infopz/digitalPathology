@@ -24,11 +24,7 @@ from aiflopp.train_mil_attention import (
 ) 
 from flare_exp.fl_utils import optional_metric, prefix_prints
 
-
-MANIFEST_PATH = {
-    "reggio_client": Path("/home/ubuntu/giodir/digitalPathology/data/manifests/reggio_only/afpp_manifest_all_base"),
-    "trento_client": Path("/home/ubuntu/giodir/digitalPathology/data/manifests/trento_only/afpp_manifest_tn_base")
-}
+MANIFESTS_ROOT_PATH = Path("/home/ubuntu/giodir/digitalPathology/data/manifests")
 
 
 def parse_args():
@@ -48,6 +44,12 @@ def parse_args():
         type=Path, 
         required=True,
         help="Directory to save model checkpoints and logs."
+    )
+    parser.add_argument(
+        "--manifest-set",
+        type=str,
+        required=True,
+        help="Name of the manifest set to use.",
     )
 
     # Model hyperparameters
@@ -192,7 +194,7 @@ def evaluate_given_model(
 
         print(f"Saved evaluation metrics to {json_out_path}")
     
-    return test_metrics
+    return test_metrics, val_metrics
 
 
 def main():
@@ -212,8 +214,8 @@ def main():
     args.output_dir = args.output_dir / client_name / "results"
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
-    # Load manifest based on client_name
-    base_manifest_path = MANIFEST_PATH.get(client_name)
+    # Load manifest based on client_name and manifest_set
+    base_manifest_path = MANIFESTS_ROOT_PATH / client_name / args.manifest_set
     train_manifest = pd.read_csv(base_manifest_path / "train_manifest.csv")
     val_manifest = pd.read_csv(base_manifest_path / "val_manifest.csv")
     test_manifest = pd.read_csv(base_manifest_path / "test_manifest.csv")
@@ -275,26 +277,23 @@ def main():
 
     while flare.is_running():
 
+        # Receive the model/state from the server
+        input_model = flare.receive()
+
         if flare.is_submit_model():
             # Submit model to server
-            # TODO: probabilmente da fixare perche non gli devo dare l'ultimo (che potrebbe avere dei pesi random)
-            #       ma caricarmi il migliore dal pth
             print("Received submit model request from server.")
-            flare.submit_model(flare.FLModel(params=model.cpu().state_dict()))
+            flare.send(flare.FLModel(params=model.cpu().state_dict()))
             continue
 
-        # Receive and load the model
-        input_model = flare.receive()
+        # Load received model
         model.load_state_dict(input_model.params)
         model.to(device)
-
-        round_num = input_model.current_round
-        print(f"Received model for round {round_num}")
 
         if flare.is_evaluate():
             print("Received evaluate request from server.")
             # Evaluate the received model
-            test_metrics = evaluate_given_model(
+            test_metrics, val_metrics = evaluate_given_model(
                 model,
                 val_loader,
                 test_loader,
@@ -302,32 +301,50 @@ def main():
                 args,
             )
             print(f"Requested evaluation metrics:")
-            print_metrics(test_metrics, split_name="received", compact=True)
-            output_model = flare.FLModel(metrics={args.key_metric: test_metrics[args.key_metric]})
+            print_metrics(val_metrics, split_name="val", compact=True)
+            print_metrics(test_metrics, split_name="test", compact=True)
+            print_metrics(val_metrics, split_name="val", compact=True)
+
+            full_metrics = {
+                "val": val_metrics,
+                "test": test_metrics,
+            }
+            output_model = flare.FLModel(metrics=full_metrics)
             flare.send(output_model)
             continue
 
-        # TODO: reuse the last lr and other hyperparameters from the previous round, or reset them?
+        round_num = input_model.current_round
+        print(f"Received model for round {round_num}")
+
+        # TODO: implement a server-side scheduler for the learning rate, weight decay, and other hyperparameters if needed.
 
         # Train model
-        model = train(model, train_loader, val_loader, args, device, loss_weight, best_metric=args.epoch_selection_metric)
+        model = train(
+            model, 
+            train_loader, 
+            val_loader, 
+            args, 
+            device, 
+            loss_weight, 
+            best_metric=args.epoch_selection_metric,
+            hide_progress=True
+        )
 
         # Evaluate
         round_out_dir = args.output_dir / f"round_{round_num}"
         round_out_dir.mkdir(parents=True, exist_ok=True)
 
-        test_metrics = evaluate_given_model(
+        # Evaluate the model on the val test with fixed threshold
+        val_metrics = evaluate(
             model,
             val_loader,
-            test_loader,
             device,
-            args,
-            json_out_path=round_out_dir / "evaluation_metrics.json",
-            csv_out_folder=round_out_dir / "predictions",
+            threshold=0.5,
+            num_classes=args.num_classes,
         )
 
         print(f"Round {round_num} evaluation metrics:")
-        print_metrics(test_metrics, compact=True)
+        print_metrics(val_metrics, split_name="val", compact=True)
 
         # Save model and metrics
         save_model(model, round_out_dir / "model.pth")
@@ -335,7 +352,7 @@ def main():
         # Send the model and metrics back to the server
         output_model = flare.FLModel(
             params=model.cpu().state_dict(),
-            metrics={args.key_metric: test_metrics[args.key_metric]},
+            metrics=val_metrics,
         )
         flare.send(output_model)
 

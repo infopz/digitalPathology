@@ -10,23 +10,14 @@ from nvflare.recipe.utils import add_cross_site_evaluation
 
 from aiflopp.models import AVAILABLE_MODEL_TYPES, MODEL_REGISTRY
 from aiflopp.train_mil_attention import validate_output_dir
-
-METRIC_CHOICES = ("acc", "precision", "recall", "f2", "balanced_acc", "auc")
-
-
-def optional_metric(value: str | None) -> str | None:
-    if value is None or value.lower() in {"none", "null"}:
-        return None
-    if value not in METRIC_CHOICES:
-        raise argparse.ArgumentTypeError(
-            f"invalid metric {value!r}; expected one of {', '.join(METRIC_CHOICES)} or null"
-        )
-    return value
+from flare_exp.fl_utils import optional_metric
+from aiflopp.train_mil_attention import METRIC_CHOICES
 
 
 CLIENT_ARGS = (
     "features_root",
     "output_dir",
+    "manifest_set",
     "model_type",
     "attention_dim",
     "hidden_dim",
@@ -101,6 +92,7 @@ def parse_args() -> argparse.Namespace:
     # Client settings resolved here and forwarded as explicit CLI args.
     parser.add_argument("--features-root", type=Path)
     parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--manifest-set", type=str)
     parser.add_argument(
         "--model-type",
         type=str,
@@ -141,6 +133,8 @@ def parse_args() -> argparse.Namespace:
         parser.error("--features-root is required, either in YAML as features_root or on the CLI.")
     if args.output_dir is None:
         parser.error("--output-dir is required, either in YAML as output_dir or on the CLI.")
+    if args.manifest_set is None:
+        parser.error("--manifest-set is required, either in YAML as manifest_set or on the CLI.")
     return args
 
 
@@ -206,7 +200,7 @@ def main() -> FedAvgRecipe:
     )
 
     if args.cross_site_eval:
-        add_cross_site_evaluation(recipe, args.client_list)
+        add_cross_site_evaluation(recipe)
 
     env = SimEnv(
         clients=args.client_list,

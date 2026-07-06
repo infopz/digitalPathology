@@ -1,6 +1,7 @@
 # Input/output paths
 features_root: /home/ubuntu/giodir/digitalPathology/data/features/uni_features_merged_RE_TN
 output_dir: /home/ubuntu/giodir/digitalPathology/flare_exp/outputs/binary_diff_first
+manifest_set: pat_binary_diff
 
 # Model hyperparameters
 model_type: base_mil
@@ -26,13 +27,12 @@ client_list:
 num_rounds: 2
 train_script: flare_exp/client.py
 job_name: mil-fedavg
-cross_site_eval: false
+cross_site_eval: true
 
 # Metrics
 key_metric: balanced_acc
 eval_threshold_metric: balanced_acc
 epoch_selection_metric: null
-
 
 # Runtime/settings
 num_workers: 4

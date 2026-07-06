@@ -530,7 +530,8 @@ def train(
     device: torch.device,
     loss_weight: torch.Tensor,
     best_metric: str | None = None, # balanced_acc
-    secondary_metric: str = "auc"
+    secondary_metric: str = "auc",
+    hide_progress: bool = False,
 ):
     if is_multiclass_task(args.num_classes):
         criterion = nn.CrossEntropyLoss(weight=loss_weight)
@@ -555,7 +556,7 @@ def train(
         train_predictions = []
         train_labels = []
 
-        for bags, labels, _, _ in tqdm(train_loader, desc=f"Epoch {epoch}"):
+        for bags, labels, _, _ in tqdm(train_loader, desc=f"Epoch {epoch}", disable=hide_progress):
             bags = [b.to(device) for b in bags]
             labels = labels.to(device)
 
