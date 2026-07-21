@@ -11,11 +11,12 @@ load_dotenv(SERVER_ENV_FILE)
 
 from nvflare.app_opt.pt.recipes.fedavg import FedAvgRecipe
 from nvflare.recipe import SimEnv
-from nvflare.recipe.utils import add_cross_site_evaluation, add_experiment_tracking
+from nvflare.recipe.utils import add_cross_site_evaluation
 
 from aiflopp.models import AVAILABLE_MODEL_TYPES, MODEL_REGISTRY
 from aiflopp.train_mil_attention import validate_output_dir
 from flare_exp.fl_utils import optional_metric, parse_bool, build_resolved_config, log_cross_site_tables_to_wandb
+from flare_exp.wandb_receiver import GroupedWandBReceiver
 from aiflopp.train_mil_attention import METRIC_CHOICES
 
 
@@ -216,21 +217,17 @@ def main() -> FedAvgRecipe:
         add_cross_site_evaluation(recipe)
 
     if args.enable_tracking:
-        add_experiment_tracking(
-            recipe,
-            "wandb",
-            tracking_config={
-                "wandb_args": {
-                    "project": args.wandb_project,
-                    "name": args.job_name,
-                    "group": args.job_name,
-                    "job_type": "federated_client",
-                    "config": resolved_config,
-                },
-                "mode": "online"},
-            server_side=True,
-            client_side=False,
+        wandb_receiver = GroupedWandBReceiver(
+            wandb_args={
+                "project": args.wandb_project,
+                "name": args.job_name,
+                "group": args.job_name,
+                "job_type": "federated_client",
+                "config": resolved_config,
+            },
+            mode="online",
         )
+        recipe.job.to_server(wandb_receiver, "receiver")
 
     env = SimEnv(
         clients=args.client_list,
@@ -241,7 +238,7 @@ def main() -> FedAvgRecipe:
     print("Job Status is:", run.get_status())
     print("Result can be found in :", run.get_result())
     print()
-    log_cross_site_tables_to_wandb(args, resolved_config, Path(run.get_result()))
+    log_cross_site_tables_to_wandb(args, resolved_config, Path(run.get_result()), args.job_name)
 
 
 

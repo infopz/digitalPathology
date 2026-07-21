@@ -130,7 +130,12 @@ def build_wandb_table_rows(site_results: dict) -> list[list]:
     return rows
 
 
-def log_cross_site_tables_to_wandb(args: argparse.Namespace, resolved_config: dict, result_dir: Path) -> None:
+def log_cross_site_tables_to_wandb(
+    args: argparse.Namespace,
+    resolved_config: dict,
+    result_dir: Path,
+    wandb_group: str,
+) -> None:
     # Called at the end of the training,
     # logs the cross-site evalutation to wandb as summary table + config
     
@@ -150,7 +155,7 @@ def log_cross_site_tables_to_wandb(args: argparse.Namespace, resolved_config: di
     wandb_args = {
         "project": args.wandb_project,
         "name": f"{args.job_name}-cross-site-summary",
-        "group": args.job_name,
+        "group": wandb_group,
         "job_type": "cross_site_summary",
         "config": resolved_config,
         "mode": "online",

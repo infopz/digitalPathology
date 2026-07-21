@@ -2,7 +2,7 @@
 features_root: /home/ubuntu/giodir/digitalPathology/data/features/uni_features_merged_RE_TN
 output_dir: /home/ubuntu/giodir/digitalPathology/flare_exp/outputs/
 manifest_set: pat_binary_diff
-job_name: fl_pat_diff_first
+job_name: fl_pat_binary_diff
 
 # Model hyperparameters
 model_type: base_mil
@@ -25,7 +25,7 @@ max_bag_size: 0
 client_list:
   - trento_client
   - reggio_client
-num_rounds: 4
+num_rounds: 6
 train_script: flare_exp/client.py
 cross_site_eval: true
 
@@ -39,5 +39,5 @@ enable_tracking: true
 wandb_project: digital-pathology-fl
 
 # Runtime/settings
-num_workers: 4
+num_workers: 2
 seed: 7
