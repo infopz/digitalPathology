@@ -14,3 +14,5 @@ data
 aiflopp/outputs*
 aiflopp/test_heatmap
 flare_exp/outputs
+*.env
+wandb

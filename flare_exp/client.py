@@ -1,10 +1,13 @@
 import argparse
-import builtins
+from functools import partial
 import json
+import os
 from pathlib import Path
 
+from dotenv import load_dotenv
 from torch.utils.data import DataLoader
 import nvflare.client as flare
+from nvflare.client.tracking import WandBWriter
 import pandas as pd
 import torch
 
@@ -14,6 +17,7 @@ from aiflopp.train_mil_attention import (
     collect_predictions,
     compute_pos_weight,
     evaluate,
+    is_multiclass_task,
     print_metrics,
     save_predictions,
     save_model,
@@ -22,9 +26,17 @@ from aiflopp.train_mil_attention import (
     train,
     METRIC_CHOICES
 ) 
-from flare_exp.fl_utils import optional_metric, prefix_prints
+from flare_exp.fl_utils import (
+    optional_metric, 
+    parse_bool, 
+    prefix_prints, 
+    prepare_tracking_metrics, 
+    log_metrics,
+    train_log_callback,
+)
 
-MANIFESTS_ROOT_PATH = Path("/home/ubuntu/giodir/digitalPathology/data/manifests")
+CLIENT_ENV_FILE = "/home/ubuntu/giodir/digitalPathology/flare_exp/client_secrets.env"
+load_dotenv(CLIENT_ENV_FILE)
 
 
 def parse_args():
@@ -107,6 +119,7 @@ def parse_args():
         default=None,
         help="Metric used to select the best local epoch; null disables epoch selection.",
     )
+    parser.add_argument("--enable-tracking", type=parse_bool, default=True)
     return parser.parse_args()
 
 
@@ -141,7 +154,7 @@ def evaluate_given_model(
     """
 
     # Search for best threshold using val set
-    val_bag_ids, val_y_true, val_y_prob = collect_predictions(
+    val_bag_ids, val_y_true, val_y_prob, _ = collect_predictions(
         model,
         val_loader,
         device,
@@ -209,13 +222,21 @@ def main():
     sys_info = flare.system_info()
     client_name = sys_info["site_name"]
     prefix_prints(client_name)
+
+    # Initialize WanDB tracking
+    tracking_writer = None
+    if args.enable_tracking:
+        print("Initializing WandB tracking...")
+        tracking_writer = WandBWriter()
+
     print(f"Using device: {device}")
 
     args.output_dir = args.output_dir / client_name / "results"
     Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
     # Load manifest based on client_name and manifest_set
-    base_manifest_path = MANIFESTS_ROOT_PATH / client_name / args.manifest_set
+    manifest_root_path = Path(os.getenv("MANIFEST_ROOT_PATH"))
+    base_manifest_path = manifest_root_path / client_name / args.manifest_set
     train_manifest = pd.read_csv(base_manifest_path / "train_manifest.csv")
     val_manifest = pd.read_csv(base_manifest_path / "val_manifest.csv")
     test_manifest = pd.read_csv(base_manifest_path / "test_manifest.csv")
@@ -229,6 +250,10 @@ def main():
     args.pos_weight = float(loss_weight.item())
     args.class_weights = None
     args.decision_threshold = 0.5
+    if is_multiclass_task(args.num_classes):
+        criterion = torch.nn.CrossEntropyLoss(weight=loss_weight)
+    else:
+        criterion = torch.nn.BCEWithLogitsLoss(pos_weight=loss_weight)
 
     # Build model based on specified model_type
     model = model_entry["build"](args).to(device)
@@ -316,6 +341,27 @@ def main():
         round_num = input_model.current_round
         print(f"Received model for round {round_num}")
 
+        # Evaluate the received global model before local updates to track site shift.
+        global_val_metrics = evaluate(
+            model,
+            val_loader,
+            device,
+            criterion,
+            threshold=0.5,
+            num_classes=args.num_classes,
+        )
+        print(f"Round {round_num} received global model metrics:")
+        print_metrics(global_val_metrics, split_name="global_val", compact=True)
+        round_step_base = round_num * (args.epochs + 2)
+        tracking_metrics = {
+            "round": round_num,
+            **prepare_tracking_metrics(
+                "global_received/val",
+                global_val_metrics,
+            ),
+        }
+        log_metrics(tracking_writer, tracking_metrics, step=round_step_base)
+
         # TODO: implement a server-side scheduler for the learning rate, weight decay, and other hyperparameters if needed.
 
         # Train model
@@ -325,9 +371,15 @@ def main():
             val_loader, 
             args, 
             device, 
-            loss_weight, 
+            criterion, 
             best_metric=args.epoch_selection_metric,
-            hide_progress=True
+            hide_progress=True,
+            log_callback=partial(
+                train_log_callback,
+                round_step_base=round_step_base,
+                round_num=round_num,
+                tracking_writer=tracking_writer,
+            ),
         )
 
         # Evaluate
@@ -339,12 +391,21 @@ def main():
             model,
             val_loader,
             device,
+            criterion,
             threshold=0.5,
             num_classes=args.num_classes,
         )
 
         print(f"Round {round_num} evaluation metrics:")
         print_metrics(val_metrics, split_name="val", compact=True)
+        log_metrics(
+            tracking_writer,
+            {
+                "round": round_num,
+                **prepare_tracking_metrics("local_post/val", val_metrics),
+            },
+            step=round_step_base + args.epochs + 1,
+        )
 
         # Save model and metrics
         save_model(model, round_out_dir / "model.pth")

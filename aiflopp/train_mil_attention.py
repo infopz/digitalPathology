@@ -2,6 +2,7 @@ import argparse
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Callable
 import numpy as np
 import pandas as pd
 import torch
@@ -250,15 +251,21 @@ def collect_predictions(
     loader: DataLoader,
     device: torch.device,
     num_classes: int,
-) -> tuple[list[str], np.ndarray, np.ndarray]:
+    criterion: nn.Module | None = None,
+) -> tuple[list[str], np.ndarray, np.ndarray, float]:
     """
     Run the model on the given DataLoader
     """
     model.eval()
 
+    if criterion is None:
+        # Dummy loss if not provided
+        criterion = lambda logits, labels: torch.tensor(0.0)
+
     all_bag_ids: list[str] = []
     all_probs: list[float] | list[list[float]] = []
     all_labels: list[int] = []
+    overall_loss = 0.0
 
     for bags, labels, bag_ids, _ in loader:
         bags = [b.to(device) for b in bags]
@@ -267,14 +274,19 @@ def collect_predictions(
         logits, _ = model(bags)
         if is_multiclass_task(num_classes):
             probs = torch.softmax(logits, dim=1)
+            loss = criterion(logits, labels.long())
         else:
             probs = torch.sigmoid(logits)
+            loss = criterion(logits, labels)
 
         all_bag_ids.extend(bag_ids)
         all_probs.extend(probs.cpu().numpy().tolist())
         all_labels.extend(labels.cpu().numpy().astype(int).tolist())
+        overall_loss += loss.item() * len(bags)
+    
+    avg_loss = overall_loss / len(loader.dataset)
 
-    return all_bag_ids, np.array(all_labels), np.array(all_probs)
+    return all_bag_ids, np.array(all_labels), np.array(all_probs), avg_loss
 
 
 def compute_metrics(
@@ -456,12 +468,15 @@ def evaluate(
     model: nn.Module,
     loader: DataLoader,
     device: torch.device,
+    criterion: nn.Module | None = None,
     threshold: float | None = 0.5,
     num_classes: int = 2,
     output_csv_path: Path = None,
 ) -> dict:
-    bag_ids, y_true, y_prob = collect_predictions(model, loader, device, num_classes)
+    bag_ids, y_true, y_prob, loss = collect_predictions(model, loader, device, num_classes, criterion)
     metrics = compute_metrics(y_true, y_prob, threshold=threshold, num_classes=num_classes)
+
+    metrics["loss"] = loss
 
     # Optionally save predictions for error analysis
     if output_csv_path is not None:
@@ -528,15 +543,12 @@ def train(
     val_loader: DataLoader,
     args: argparse.Namespace,
     device: torch.device,
-    loss_weight: torch.Tensor,
+    criterion: nn.Module,
     best_metric: str | None = None, # balanced_acc
     secondary_metric: str = "auc",
     hide_progress: bool = False,
+    log_callback: Callable[[int, dict, dict], None] | None = None,
 ):
-    if is_multiclass_task(args.num_classes):
-        criterion = nn.CrossEntropyLoss(weight=loss_weight)
-    else:
-        criterion = nn.BCEWithLogitsLoss(pos_weight=loss_weight)
 
     optimizer = torch.optim.Adam(
         model.parameters(), lr=args.lr, weight_decay=args.weight_decay
@@ -587,19 +599,23 @@ def train(
             y_prob=torch.cat(train_predictions).numpy(),
             num_classes=args.num_classes,
         )
+        train_metrics["loss"] = avg_loss
         print(
-            f"Epoch {epoch}: loss={avg_loss:.3f} "
+            f"Epoch {epoch}: loss={train_metrics['loss']:.3f} "
             f"train_recall={train_metrics['recall']:.3f} "
             f"train_bal_acc={train_metrics['balanced_acc']:.3f} "
             f"train_auc={train_metrics['auc']:.3f} "
         )
-        val_metrics = evaluate(model, val_loader, device, num_classes=args.num_classes)
+        val_metrics = evaluate(model, val_loader, device, criterion, num_classes=args.num_classes)
         print(
-            f"Epoch {epoch}:             "
+            f"Epoch {epoch} loss={val_metrics['loss']:.3f} "
             f" val_recall={val_metrics['recall']:.3f} "
             f"  val_bal_acc={val_metrics['balanced_acc']:.3f} "
             f"  val_auc={val_metrics['auc']:.3f} "
         )
+
+        if log_callback is not None:
+            log_callback(epoch, train_metrics, val_metrics)
 
         if best_metric is None:
             # Skip epoch selection and early stopping if no best_metric is specified
@@ -850,6 +866,12 @@ def main() -> None:
     # Build model based on specified model_type
     model = model_entry["build"](args).to(device)
 
+    # Build criterion
+    if is_multiclass_task(args.num_classes):
+        criterion = nn.CrossEntropyLoss(weight=loss_weight)
+    else:
+        criterion = nn.BCEWithLogitsLoss(pos_weight=loss_weight)
+
     # Train model
     model = train(
         model=model,
@@ -857,12 +879,12 @@ def main() -> None:
         val_loader=val_loader,
         args=args,
         device=device,
-        loss_weight=loss_weight,
+        criterion=criterion,
         best_metric=args.epoch_selection_metric,
         secondary_metric=args.epoch_selection_secondary_metric,
     )
 
-    val_bag_ids, val_y_true, val_y_prob = collect_predictions(
+    val_bag_ids, val_y_true, val_y_prob, _ = collect_predictions(
         model=model,
         loader=val_loader,
         device=device,

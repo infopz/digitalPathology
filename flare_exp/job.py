@@ -3,14 +3,19 @@ import shlex
 from pathlib import Path
 
 import yaml
+from dotenv import load_dotenv
+
+SERVER_ENV_FILE = "/home/ubuntu/giodir/digitalPathology/flare_exp/server_secrets.env"
+load_dotenv(SERVER_ENV_FILE)
+
 
 from nvflare.app_opt.pt.recipes.fedavg import FedAvgRecipe
 from nvflare.recipe import SimEnv
-from nvflare.recipe.utils import add_cross_site_evaluation
+from nvflare.recipe.utils import add_cross_site_evaluation, add_experiment_tracking
 
 from aiflopp.models import AVAILABLE_MODEL_TYPES, MODEL_REGISTRY
 from aiflopp.train_mil_attention import validate_output_dir
-from flare_exp.fl_utils import optional_metric
+from flare_exp.fl_utils import optional_metric, parse_bool, build_resolved_config, log_cross_site_tables_to_wandb
 from aiflopp.train_mil_attention import METRIC_CHOICES
 
 
@@ -36,6 +41,7 @@ CLIENT_ARGS = (
     "key_metric",
     "eval_threshold_metric",
     "epoch_selection_metric",
+    "enable_tracking",
 )
 
 
@@ -120,6 +126,8 @@ def parse_args() -> argparse.Namespace:
         default="balanced_acc",
     )
     parser.add_argument("--epoch-selection-metric", type=optional_metric, default=None)
+    parser.add_argument("--enable-tracking", type=parse_bool, default=True)
+    parser.add_argument("--wandb-project", type=str, default="digital-pathology-fl")
 
     config = load_config(config_args.config)
     valid_keys = {action.dest for action in parser._actions}
@@ -179,7 +187,12 @@ def build_model_config(args: argparse.Namespace) -> dict:
 def main() -> FedAvgRecipe:
     args = parse_args()
 
+    # Validate and prepare the output directory for the job
+    args.output_dir = Path(args.output_dir) / args.job_name
     args.output_dir = validate_output_dir(args.output_dir)
+    args.job_name = args.output_dir.name
+    
+    resolved_config = build_resolved_config(args)
      
     # Generate the client training args
     client_train_args = build_client_train_args(args)
@@ -202,6 +215,23 @@ def main() -> FedAvgRecipe:
     if args.cross_site_eval:
         add_cross_site_evaluation(recipe)
 
+    if args.enable_tracking:
+        add_experiment_tracking(
+            recipe,
+            "wandb",
+            tracking_config={
+                "wandb_args": {
+                    "project": args.wandb_project,
+                    "name": args.job_name,
+                    "group": args.job_name,
+                    "job_type": "federated_client",
+                    "config": resolved_config,
+                },
+                "mode": "online"},
+            server_side=True,
+            client_side=False,
+        )
+
     env = SimEnv(
         clients=args.client_list,
         workspace_root=str(args.output_dir)
@@ -211,6 +241,7 @@ def main() -> FedAvgRecipe:
     print("Job Status is:", run.get_status())
     print("Result can be found in :", run.get_result())
     print()
+    log_cross_site_tables_to_wandb(args, resolved_config, Path(run.get_result()))
 
 
 
