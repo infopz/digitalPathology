@@ -11,9 +11,9 @@ RE_BAG_ID = re.compile(r"^RE_I_25_(\d+)_\d+_([A-Za-z]+)$")
 TN_BAG_ID = re.compile(r"^TN_(\d+)_(\d+)_\d+$")
 BAG_ID_PATTERN = {"RE": RE_BAG_ID, "TN": TN_BAG_ID}
 
-DEFAULT_FEATURES_DIR = Path("data/uni_features_RE_common")
-DEFAULT_LABELS_CSV = Path("data/alice/bag_labels.csv")
-DEFAULT_OUTPUT_DIR = Path("aiflopp/manifest_folds")
+DEFAULT_FEATURES_DIR = Path("/home/ubuntu/giodir/digitalPathology/data/features/uni_features_merged_RE_TN")
+DEFAULT_LABELS_CSV = Path("/home/ubuntu/giodir/digitalPathology/data/labels/tn_cad_discordance_labels/binary_diff_labels.csv")
+DEFAULT_OUTPUT_DIR = Path("/home/ubuntu/giodir/digitalPathology/data/manifests/trento_client/fl_cad_binary_diff_5cv")
 
 DEFAULT_TEST_RATIO = 0.2
 DEFAULT_N_FOLDS = 5

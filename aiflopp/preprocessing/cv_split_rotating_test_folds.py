@@ -11,8 +11,8 @@ RE_BAG_ID = re.compile(r"^RE_I_25_(\d+)_\d+_([A-Za-z]+)$")
 TN_BAG_ID = re.compile(r"^TN_(\d+)_(\d+)_\d+$")
 BAG_ID_PATTERN = {"RE": RE_BAG_ID, "TN": TN_BAG_ID}
 
-DEFAULT_FEATURES_DIR = Path("data/features/uni_features_merged_RE_TN")
-DEFAULT_N_FOLDS = 7
+DEFAULT_FEATURES_DIR = Path("/home/ubuntu/giodir/digitalPathology/data/features/uni_features_merged_RE_TN")
+DEFAULT_N_FOLDS = 5
 DEFAULT_SEED = 42
 
 
