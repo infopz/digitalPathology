@@ -8,6 +8,12 @@ import optuna
 import pandas as pd
 
 
+#####
+# Given a fixed train/val/test split, this script performs hyperparameter optimization for the MIL attention model using Optuna.
+# It runs a grid search over the specified hyperparameter search space, training the model for each combination of hyperparameters and evaluating it on the validation set.
+#####
+
+
 TRAIN_SCRIPT = Path("aiflopp/train_mil_attention.py")
 OUTPUT_DIR = Path("aiflopp/outputs/optuna_mil_attention")
 

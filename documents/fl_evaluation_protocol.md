@@ -1,212 +1,386 @@
-# FL vs. Non-FL Evaluation Protocol — Decisions & Rationale
+# FL vs. Non-FL Evaluation Protocol - Decisions & Rationale
 
-Context document for future work on the federated MIL / inter-observer discordance project.
-Records the evaluation design agreed on, and *why*, so the reasoning doesn't have to be rederived.
+Context document for the federated MIL / inter-observer discordance project.
+Records the current evaluation design and the reasoning behind it.
 
 ---
 
-## 1. Problem being solved
+## 1. Problem Being Solved
 
 Data splits are highly sensitive: metrics computed on a single split are biased by that
 particular draw. The non-FL baseline handled this with k-fold CV over pooled data. Moving to a
-federated setup (currently **2 clients**), the goal is an evaluation protocol that is:
+federated setup, currently with **2 clients**, the goal is an evaluation protocol that is:
 
 1. Robust to split choice.
-2. **Fully comparable** between the FL and non-FL versions — same data, same recipe, differing
-   only in whether it is partitioned across clients.
+2. Fully comparable between FL and non-FL models.
+3. Explicit about whether a model is evaluated on merged data or client-specific data.
+
+The central comparison is not only "FL vs. centralized on merged data". Since the FL setup is
+intended to model client-specific adaptation, the evaluation must also report performance on each
+client separately.
 
 ---
 
-## 2. Cross-validation structure
+## 2. Cross-Validation Structure
 
-**5 folds** (reduced from 7). Trade-off accepted deliberately: coarser fold-to-fold spread
-(5 points instead of 7) in exchange for larger validation slices per client per fold, which
-stabilises the per-client threshold search — the weakest link in this setup.
+The current setup uses **5 folds**.
 
-### Rotating test sets (chosen over a fixed shared test set)
+Each fold has its own train, validation, and test split. Test folds rotate, so each case appears
+in the test split exactly once across the 5 folds for a given dataset view.
 
-Each fold has its own test slice; every slide appears in test **exactly once** across the 5 folds.
-
-- **Why:** a single fixed test set can be unrepresentative (unusual pathologist pair, batch of
-  hard cases). With a fixed test set that bias hits all folds identically and the fold-to-fold
-  std cannot see it. Rotating gives a lower-variance, less biased generalisation estimate.
-- **Cost, accepted knowingly:** the fold-to-fold spread is no longer interpretable as pure
-  *training-split* sensitivity — it now confounds training-split variation with test-slice
-  variation. This is acceptable because the bootstrap CI (§5) supplies the uncertainty that
-  matters for headline claims.
-- **Fairness is preserved** as long as FL and non-FL use the *same* rotation: identical
-  slide → fold assignment, so both pipelines are tested on the same slides in the same fold.
+The reduced 5-fold design was chosen deliberately: fewer folds than 7, but larger validation and
+test slices per fold. This matters because threshold selection is done on validation data and the
+per-client validation sets can be small.
 
 ---
 
-## 3. Fold construction
+## 3. Fold Construction
 
-**Build folds per client, then merge upward to obtain the global view.**
+Folds are built per client, then merged upward to obtain the centralized/global view.
 
-```
-global fold k  =  (client A's fold k)  ∪  (client B's fold k)
+```text
+global fold k = client A fold k + client B fold k
 ```
 
-This satisfies the property that actually matters for comparability: for every fold `k`, the
-union of the clients' train partitions equals the centralized train partition, and likewise for
-val and test.
+This property is required for a fair comparison:
 
-### Why per-client and not pooled-then-split
-
-Both directions are mathematically equivalent *provided the folds are stratified by site*.
-Building per client guarantees that stratification by construction. Pooled random splitting does
-not, and can produce a fold where one site is underrepresented in validation — precisely the
-concept-shift-sensitive failure to avoid — while also making per-client validation slice sizes
-vary across folds, which destabilises the threshold search.
-
-### Additional requirements
-
-- **Stratify within each client on the label** as well. Label distribution is skewed, so this
-  keeps pos/neg ratios stable across folds.
-- **Assign fold indices once and persist them.** A CSV of `slide_id → fold_index → site`, read by
-  *both* the FL and the centralized pipeline.
-  - *Failure mode being guarded against:* regenerating folds with a different seed in one
-    pipeline and silently comparing "fold 3" against a different fold 3.
-- **Verify per-fold, per-client class counts before committing to a full run matrix.** With two
-  clients and rotating test sets, per-fold test slices get small. If a fold leaves one client
-  with ~15 test slides, that per-fold number is near noise (pooled OOF, §5, rescues the headline
-  metric, but the per-fold report degrades).
-
----
-
-## 4. Comparison design
-
-Metrics are **not merged across clients** — the two clients' data are intrinsically different,
-which is the whole reason two models are being trained in the FL setup.
-
-Everything is evaluated **per client**. The non-FL model is additionally run in *"client mode"*:
-evaluated on a single client's val/test partition. This yields, for each site, a like-for-like
-set of cells:
-
-| Model | Evaluated on |
-|---|---|
-| non-FL (client mode) | client *k*'s val/test |
-| FL global | client *k*'s val/test |
-| FL local / personalized | client *k*'s val/test |
-
-**Open point:** which of FL-global vs. FL-local is the headline number against the non-FL
-baseline is not yet settled. Both are evaluable per client under the same rules.
-
-### If a pooled FL number is ever reported
-
-Not currently planned. If it is: compute it on **concatenated predictions across sites** — one
-metric on the pooled prediction vector — never an average of per-site metrics. Averaging
-per-site balanced accuracy weights a small site equally with a large one and will not match the
-centralized computation.
-
----
-
-## 5. Metric computation
-
-Two distinct quantities, both reported, answering different questions.
-
-### 5a. Pooled OOF metric — the headline number
-
-Each slide has exactly one out-of-fold prediction. Concatenate all predictions across the 5 folds
-into a single vector and compute the metric **once** on that vector. One number, not five
-averaged.
-
-**Why not average the per-fold metrics:** with small per-fold test slices each per-fold metric is
-a noisy estimate, and averaging noisy estimates ≠ computing the metric once on the full set.
-This matters especially for balanced accuracy, which depends on class-conditional rates that are
-unstable when a fold contains only a handful of positives. Pooled computation uses every slide's
-contribution directly. Consistent with the OOF convention already used elsewhere in this project.
-
-### 5b. Bootstrap CI — uncertainty on the headline
-
-Resample the N slides in the pooled OOF prediction set **with replacement**, ~1000 times;
-recompute the pooled metric on each resample; take the 2.5th and 97.5th percentiles as a 95%
-confidence interval.
-
-- Measures how much the metric would move given a different *test sample* of the same size.
-- Distinct from the fold-to-fold std, which reflects sensitivity to a different *training* split.
-- With small per-client test sets this interval may be wide enough to affect any claim that FL
-  matches or beats centralized — which is exactly why it is reported.
-
-### 5c. Per-fold mean ± std — secondary report
-
-Five metrics, one per fold's test slice; report mean and std. Under the rotating-test design this
-std confounds training-split and test-slice variation (see §2). Kept as a secondary descriptive
-figure, not the headline.
-
-### Reporting format
-
-```
-pooled OOF balanced accuracy = 0.71  [95% CI 0.65 – 0.77]
-per-fold: 0.68 ± 0.05
+```text
+centralized train fold k = union of client train fold k
+centralized val fold k   = union of client val fold k
+centralized test fold k  = union of client test fold k
 ```
 
----
+The current client CV folders are:
 
-## 6. Threshold handling
-
-**Rule: threshold search and metric evaluation always use the same client's data.**
-
-```
-client k's validation predictions  →  search threshold  →  freeze
-client k's test predictions        →  compute metrics with that frozen threshold
+```text
+data/manifests/reggio_client/fl_cad_binary_diff_5cv
+data/manifests/trento_client/fl_cad_binary_diff_5cv
 ```
 
-Applied uniformly to FL-global, FL-local, and non-FL-in-client-mode.
+The merged/global CV folder is:
 
-### Why not tune on pooled validation
+```text
+data/manifests/mergedRT/fl_cad_binary_diff_5cv
+```
 
-For the non-FL model evaluated in client mode, tuning the threshold on the *pooled* validation
-set and only reporting metrics on client *k*'s slice would give the non-FL model a different
-operating point — better calibrated, fit on more data — than the FL model receives. That biases
-the comparison in favour of centralized. Each FL model gets a threshold tuned on the site it is
-deployed at; the non-FL counterpart must go through the identical recipe.
+The merged folder is created by:
 
-### Known caveat
+```text
+aiflopp/preprocessing/merge_client_cv_folds.py
+```
 
-Per-client validation splits are small, so the tuned threshold is noisy. This noise hits FL and
-non-FL **equally**, so the comparison stays fair — but it is a further reason the bootstrap CI is
-necessary, since threshold variability is part of what the interval should reflect.
+The merge script concatenates matching `fold_XX/train_manifest.csv`, `val_manifest.csv`, and
+`test_manifest.csv` files across clients, preserving one CSV header.
 
-### Never tune and report on the same split
-
-Client val → threshold. Client test → metrics. Never the same slides for both.
+Adding a third client should only require adding another client fold directory to the merge script
+and to the evaluation dictionaries.
 
 ---
 
-## 7. Recipe parity between FL and non-FL
+## 4. Comparison Design
 
-For the comparison to mean anything, every non-data choice must mirror across the two pipelines:
+The evaluation matrix is:
 
-- **Selection metric:** FL round-selection must mirror centralized epoch-selection — balanced
-  accuracy at threshold 0.5 (per existing project convention; AUC retained as a diagnostic only,
-  since frozen UNI2-h features are strongly linearly separable from the start and AUC degrades
-  monotonically).
-- **Threshold handling:** structurally identical (§6).
-- **Fold assignment:** the same persisted CSV (§3).
-- **Randomness:** fix all FL-side randomness — seeds, deterministic client order, any client
-  sampling. Otherwise the fold-to-fold std conflates split sensitivity with FL stochasticity
-  (aggregation order, round-reset optimizer noise) and no longer means the same thing as the
-  centralized std. The fold should be the only factor varying across the 5 runs.
+| Model | Trained On | Evaluated On |
+|---|---|---|
+| non-FL centralized | merged train folds | merged val/test folds |
+| non-FL centralized | merged train folds | Reggio val/test folds |
+| non-FL centralized | merged train folds | Trento val/test folds |
+| FL global | federated client train folds | Reggio val/test folds |
+| FL global | federated client train folds | Trento val/test folds |
+| FL global | federated client train folds | merged val/test folds, optional |
+| FL local Reggio | Reggio local FL model | Reggio val/test folds |
+| FL local Trento | Trento local FL model | Trento val/test folds |
+
+The client-specific rows are the fair FL-vs-non-FL comparison:
+
+| Dataset | Non-FL Comparator | FL Comparator |
+|---|---|---|
+| Reggio | centralized model evaluated on Reggio folds | FL global and/or Reggio local evaluated on Reggio folds |
+| Trento | centralized model evaluated on Trento folds | FL global and/or Trento local evaluated on Trento folds |
+
+The merged non-FL row is still useful as the centralized global reference. The merged FL-global row
+can be reported as an optional diagnostic, but it is not a substitute for client-specific
+evaluation.
 
 ---
 
-## 8. Run structure
+## 5. Metric Computation
 
-- Define the 5 folds once, per client, persist to CSV.
-- Call the FL algorithm **5 times**, once per fold, with identical fold definitions on both
-  clients.
-- Run the centralized baseline 5 times on the merged folds, plus in client mode per site.
-- Collect per-slide OOF test predictions from every run.
-- Compute: pooled OOF metric + bootstrap CI (headline), per-fold mean ± std (secondary), per
-  client, per model type.
+The current reporting rule is:
+
+```text
+compute each metric independently on each fold test set
+report mean and standard deviation across the 5 folds
+```
+
+The active reported metrics are:
+
+```text
+balanced_acc
+precision
+recall
+recall_0
+auc
+f2
+acc
+```
+
+The current evaluation code does **not** compute pooled out-of-fold metrics and does **not** compute
+bootstrap confidence intervals. Earlier versions considered pooled OOF metrics and bootstrap CIs,
+but these have been removed to keep the evaluation simpler and easier to inspect.
+
+For each model/dataset evaluation, the main output is:
+
+```text
+fold_metrics.csv
+```
+
+Format:
+
+```text
+fold,threshold,balanced_acc,precision,recall,recall_0,auc,f2,acc,num_bags
+fold_01,...
+fold_02,...
+fold_03,...
+fold_04,...
+fold_05,...
+avg,,...
+std,,...
+```
+
+The comparison CSV files report metric cells as:
+
+```text
+mean +/- std
+```
+
+Example:
+
+```text
+0.7812 +/- 0.0350
+```
 
 ---
 
-## 9. Open points
+## 6. Threshold Handling
 
-1. **FL-global vs. FL-local** as the headline comparison target — not settled.
-2. **Per-fold, per-client class counts** under rotating test sets — verify empirically that
-   enough positives remain per client per fold before committing to the full run matrix.
-3. **Pooled-across-sites FL number** — deliberately deferred; if ever needed, use concatenated
-   predictions, not averaged per-site metrics.
+Threshold handling is identical for FL and non-FL evaluation.
+
+For every model, dataset target, and CV fold:
+
+```text
+fold k validation predictions -> search threshold -> freeze threshold
+fold k test predictions       -> compute metrics with frozen threshold
+```
+
+The threshold is always searched on the same dataset view that is being evaluated.
+
+Examples:
+
+```text
+non-FL on Reggio: threshold from Reggio fold k val, metrics on Reggio fold k test
+non-FL on Trento: threshold from Trento fold k val, metrics on Trento fold k test
+FL global on Reggio: threshold from Reggio fold k val, metrics on Reggio fold k test
+FL local Trento: threshold from Trento fold k val, metrics on Trento fold k test
+```
+
+This avoids giving the centralized model a better operating point by tuning it on pooled validation
+data while reporting only on a client subset.
+
+---
+
+## 7. Scripts And Responsibilities
+
+### Single CV Evaluator
+
+```text
+aiflopp/evaluate_single_cv.py
+```
+
+Evaluates one checkpoint root against one CV dataset folder.
+
+It expects:
+
+```text
+checkpoint_root/fold_01/best_model.pth
+checkpoint_root/fold_01/config.yaml
+checkpoint_root/fold_02/best_model.pth
+...
+
+folds_dir/fold_01/val_manifest.csv
+folds_dir/fold_01/test_manifest.csv
+folds_dir/fold_02/val_manifest.csv
+...
+```
+
+It writes only:
+
+```text
+fold_metrics.csv
+```
+
+### Non-FL Client Evaluation
+
+```text
+aiflopp/evaluate_nonfl_on_clients.py
+```
+
+Evaluates one centralized non-FL CV checkpoint root on:
+
+```text
+merged
+reggio
+trento
+```
+
+It calls `aiflopp.evaluate_single_cv` once per target dataset and writes:
+
+```text
+nonfl_cv_comparison.csv
+nonfl_cv_comparison.json
+```
+
+The script is client-extensible through `CLIENT_DATASET_PARENTS`.
+
+### FL CV Launcher
+
+```text
+flare_exp/run_fl_cv.py
+```
+
+Runs one NVFlare job per CV fold by calling `flare_exp.job` sequentially.
+
+It derives defaults from the FL YAML config:
+
+```text
+output_dir
+manifest_set
+job_name
+```
+
+All fold runs share the same W&B group, while each fold still has a unique job name.
+
+### FL Metrics Evaluation
+
+```text
+flare_exp/evaluate_fl_cv_metrics.py
+```
+
+Exports FL checkpoints into a standard evaluator format and evaluates all FL targets.
+
+It exports:
+
+```text
+global/fold_XX/best_model.pth
+local/reggio/fold_XX/best_model.pth
+local/trento/fold_XX/best_model.pth
+```
+
+Then it evaluates:
+
+```text
+FL global -> Reggio
+FL global -> Trento
+FL global -> merged, optional
+FL local Reggio -> Reggio
+FL local Trento -> Trento
+```
+
+It writes:
+
+```text
+fl_cv_comparison.csv
+fl_cv_comparison.json
+```
+
+---
+
+## 8. Recipe Parity Between FL And Non-FL
+
+The comparison is only meaningful if the non-data choices remain aligned:
+
+- Same fold definitions.
+- Same model architecture when comparing a specific experiment.
+- Same feature root.
+- Same threshold handling.
+- Same metric set.
+- Same fold-level mean/std reporting.
+- Same random seed policy as much as possible.
+
+For the current gated CAD-diff experiment, the FL config is:
+
+```text
+flare_exp/configs/gated_bs512_d05_CAD_DIFF_fed.yaml
+```
+
+It mirrors the non-FL gated model settings where applicable.
+
+---
+
+## 9. Run Structure
+
+1. Create per-client CV folds.
+2. Merge per-client folds into `mergedRT/fl_cad_binary_diff_5cv`.
+3. Train the centralized non-FL model over the merged CV folds.
+4. Train the FL model once per fold using the FL CV launcher.
+5. Evaluate non-FL on merged and client-specific folds.
+6. Evaluate FL global/local models on the configured target datasets.
+7. Compare the final CSV files, which report mean +/- std across folds.
+
+---
+
+## 10. Open Points
+
+1. Whether FL-global or FL-local is the main headline comparator remains a scientific/reporting
+   decision.
+2. If a third client is added, update the client dictionaries in the merge and evaluation scripts.
+3. Merged FL-global evaluation is optional and should not replace the client-specific rows.
+
+---
+
+## 11. Commands
+
+### Merge Client CV Folds
+
+Run this only when the merged global folds need to be created or refreshed:
+
+```bash
+PYTHONPATH=. python3 aiflopp/preprocessing/merge_client_cv_folds.py
+```
+
+### Train FL Across The 5 CV Folds
+
+```bash
+PYTHONPATH=. python3 -m flare_exp.run_fl_cv \
+  --config flare_exp/configs/gated_bs512_d05_CAD_DIFF_fed.yaml \
+  --skip-existing
+```
+
+### Evaluate Non-FL On Merged And Client Datasets
+
+```bash
+PYTHONPATH=. python3 -m aiflopp.evaluate_nonfl_on_clients \
+  --checkpoint-root /home/ubuntu/giodir/digitalPathology/outputs/cad_binary_diff/trained_models/nonFL-gated_bs512_d05 \
+  --output-root /home/ubuntu/giodir/digitalPathology/outputs/cad_binary_diff/evaluations/nonFL-gated_bs512_d05 \
+  --manifest-name fl_cad_binary_diff_5cv
+```
+
+### Evaluate FL CV Metrics
+
+```bash
+PYTHONPATH=. python3 flare_exp/evaluate_fl_cv_metrics.py \
+  --config flare_exp/configs/gated_bs512_d05_CAD_DIFF_fed.yaml
+```
+
+### Evaluate A Single Model/Dataset CV Pair Manually
+
+Use this for debugging or custom comparisons:
+
+```bash
+PYTHONPATH=. python3 -m aiflopp.evaluate_single_cv \
+  --checkpoint-root /path/to/checkpoints \
+  --folds-dir /path/to/folds \
+  --output-dir /path/to/evaluation_output \
+  --features-root /home/ubuntu/giodir/digitalPathology/data/features/uni_features_merged_RE_TN
+```

@@ -55,7 +55,7 @@ class GroupedWandBReceiver(WandBReceiver):
 
         for site_name in site_names:
             self.log_info(fl_ctx, f"initialize WandB run for site {site_name}")
-            self.wandb_args["name"] = f"{site_name}-{job_group_name}"
+            self.wandb_args["name"] = f"{site_name}-{run_name}"
             self.wandb_args["group"] = job_group_name
             self.wandb_args["mode"] = self.mode
             wand_config["job_id"] = job_id_tag

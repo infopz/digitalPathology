@@ -11,8 +11,9 @@ wheels/
 
 reggio_data
 data
-aiflopp/outputs*
 aiflopp/test_heatmap
 flare_exp/outputs
 *.env
 wandb
+*/output*
+output*

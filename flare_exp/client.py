@@ -328,7 +328,6 @@ def main():
             print(f"Requested evaluation metrics:")
             print_metrics(val_metrics, split_name="val", compact=True)
             print_metrics(test_metrics, split_name="test", compact=True)
-            print_metrics(val_metrics, split_name="val", compact=True)
 
             full_metrics = {
                 "val": val_metrics,

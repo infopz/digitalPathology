@@ -20,10 +20,10 @@ WSI_DIRS = [Path("/home/ubuntu/giodir/digitalPathology/data/aiFlopp/prostate_40c
             Path("/home/ubuntu/giodir/digitalPathology/data/share/2025-09-22_TN_1_17"),
             Path("/home/ubuntu/giodir/digitalPathology/data/share/2025-09-23_TN_18_40")]
 
+DEFAULT_ATTENTION_DIR = Path("aiflopp/outputs_inference/test_model_wnames/attention_scores")
+DEFAULT_OUTPUT_PATH = Path("aiflopp/test_heatmap")
 
 def parse_args() -> argparse.Namespace:
-    default_attention_dir = Path("aiflopp/outputs_inference/test_model_wnames/attention_scores")
-    default_output_path = Path("aiflopp/test_heatmap")
 
     parser = argparse.ArgumentParser(
         description="Plot attention heatmaps over resized WSI thumbnails."
@@ -43,8 +43,8 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument("--wsi-dirs", type=Path, nargs="+", default=WSI_DIRS, help="Directory (or directories) to search for WSI files.")
-    parser.add_argument("--attention-dir", type=Path, default=default_attention_dir)
-    parser.add_argument("--output-path", type=Path, default=default_output_path)
+    parser.add_argument("--attention-dir", type=Path, default=DEFAULT_ATTENTION_DIR, help="Directory containing attention CSV files named <bag_id>.csv.")
+    parser.add_argument("--output-path", type=Path, default=DEFAULT_OUTPUT_PATH, help="Directory where heatmap images will be saved.")
 
     parser.add_argument("--plot-outlines", action="store_true", help="Whether to plot patch outlines on the heatmap.")
 

@@ -17,6 +17,10 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 
+######
+# Old script used to evaluate a non-FL trained model on all folds of a CV training output
+######
+
 DEFAULT_DEEP_FEATURES_ROOT = Path("/home/ubuntu/giodir/digitalPathology/data/features/uni_features_merged_RE_TN")
 METRIC_PRIORITY = ["balanced_acc", "precision", "recall", "recall_0", "auc"]
 

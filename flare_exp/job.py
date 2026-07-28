@@ -129,6 +129,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--epoch-selection-metric", type=optional_metric, default=None)
     parser.add_argument("--enable-tracking", type=parse_bool, default=True)
     parser.add_argument("--wandb-project", type=str, default="digital-pathology-fl")
+    parser.add_argument(
+        "--wandb-group",
+        type=str,
+        default=None,
+        help="Optional W&B group name. Defaults to --job-name.",
+    )
 
     config = load_config(config_args.config)
     valid_keys = {action.dest for action in parser._actions}
@@ -189,9 +195,10 @@ def main() -> FedAvgRecipe:
     args = parse_args()
 
     # Validate and prepare the output directory for the job
-    args.output_dir = Path(args.output_dir) / args.job_name
-    args.output_dir = validate_output_dir(args.output_dir)
-    args.job_name = args.output_dir.name
+    job_output_dir = validate_output_dir(Path(args.output_dir) / args.job_name)
+    args.output_dir = job_output_dir.parent
+    args.job_name = job_output_dir.name
+    args.wandb_group = args.wandb_group or args.job_name
     
     resolved_config = build_resolved_config(args)
      
@@ -221,7 +228,7 @@ def main() -> FedAvgRecipe:
             wandb_args={
                 "project": args.wandb_project,
                 "name": args.job_name,
-                "group": args.job_name,
+                "group": args.wandb_group,
                 "job_type": "federated_client",
                 "config": resolved_config,
             },
@@ -238,7 +245,7 @@ def main() -> FedAvgRecipe:
     print("Job Status is:", run.get_status())
     print("Result can be found in :", run.get_result())
     print()
-    log_cross_site_tables_to_wandb(args, resolved_config, Path(run.get_result()), args.job_name)
+    log_cross_site_tables_to_wandb(args, resolved_config, Path(run.get_result()), args.wandb_group)
 
 
 
