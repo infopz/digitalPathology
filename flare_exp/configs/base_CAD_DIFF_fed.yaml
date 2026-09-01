@@ -1,8 +1,8 @@
 # Input/output paths
 features_root: /home/ubuntu/giodir/digitalPathology/data/features/uni_features_merged_RE_TN
 output_dir: /home/ubuntu/giodir/digitalPathology/outputs/cad_binary_diff/trained_models/fl/
-manifest_set: fl_cad_binary_diff_5cv/fold_01
-job_name: fl_cad_binary_diff_5cv_gated_bs512_d05
+manifest_set: fl_cad_binary_diff_5cv
+job_name: fl_cad_binary_diff_base
 
 # Model hyperparameters
 model_type: gated_mil
@@ -27,7 +27,7 @@ client_list:
   - reggio_client
 num_rounds: 10
 train_script: flare_exp/client.py
-cross_site_eval: true
+cross_site_eval: false
 
 # Metrics
 key_metric: balanced_acc

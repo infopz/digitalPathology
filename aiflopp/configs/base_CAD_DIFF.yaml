@@ -1,0 +1,28 @@
+train_manifest: /home/ubuntu/giodir/digitalPathology/data/manifests/mergedRT/fl_cad_binary_diff_5cv/fold_01/train_manifest.csv
+val_manifest: /home/ubuntu/giodir/digitalPathology/data/manifests/mergedRT/fl_cad_binary_diff_5cv/fold_01/val_manifest.csv
+test_manifest: /home/ubuntu/giodir/digitalPathology/data/manifests/mergedRT/fl_cad_binary_diff_5cv/fold_01/test_manifest.csv
+features_root: /home/ubuntu/giodir/digitalPathology/data/features/uni_features_merged_RE_TN
+handcrafted_features_root: null
+output_dir: outputs/cad_binary_diff/trained_models/nonFL-base
+
+model_type: gated_mil
+attention_dim: 128
+hidden_dim: 64
+num_classes: 2
+dropout: 0.5
+feature_mode: deep
+
+epochs: 20
+batch_size: 32
+lr: 5.0e-4
+weight_decay: 1.0e-4
+patience: null
+max_bag_size: 512
+
+epoch_selection_metric: null
+epoch_selection_secondary_metric: auc
+threshold_metric: balanced_acc
+
+device: cuda
+num_workers: 4
+seed: 7

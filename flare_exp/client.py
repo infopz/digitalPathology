@@ -88,6 +88,7 @@ def parse_args():
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--lr", type=float, default=5e-4, help="Adam learning rate.")
     parser.add_argument("--weight-decay", type=float, default=1e-4)
+    parser.add_argument("--pos-weight", type=float, default=None)
     parser.add_argument("--patience", type=int, default=10, help="Number of epochs to wait for improvement.")
     parser.add_argument(
         "--max-bag-size",
@@ -245,8 +246,11 @@ def main():
     model_entry = MODEL_REGISTRY[args.model_type]
     model_entry["validate"](args)
 
-    # Compute pos weight
-    loss_weight = compute_pos_weight(train_manifest, device)
+    # Use a provided global pos_weight, otherwise compute the local client value.
+    if args.pos_weight is None:
+        loss_weight = compute_pos_weight(train_manifest, device)
+    else:
+        loss_weight = torch.tensor(args.pos_weight, dtype=torch.float32, device=device)
     args.pos_weight = float(loss_weight.item())
     args.class_weights = None
     args.decision_threshold = 0.5

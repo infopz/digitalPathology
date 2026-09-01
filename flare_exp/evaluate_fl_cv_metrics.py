@@ -33,7 +33,7 @@ CLIENTS = {
 
 FEATURES_ROOT = Path("/home/ubuntu/giodir/digitalPathology/data/features/uni_features_merged_RE_TN")
 EVALUATE_GLOBAL_ON_MERGED = True
-GLOBAL_MODEL_NAME = "best_FL_global_model.pt"
+GLOBAL_MODEL_NAME = "FL_global_model.pt"#"best_FL_global_model.pt"
 LOCAL_ROUND = None
 SKIP_EXISTING = True
 METRICS = ["balanced_acc", "precision", "recall", "recall_0", "auc", "f2", "acc"]

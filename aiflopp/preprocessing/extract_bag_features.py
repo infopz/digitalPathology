@@ -176,8 +176,8 @@ def main(input_folder: Path, output_folder: Path, uni_weights_path: Path, batch_
 
 if __name__ == "__main__":
 
-    PATCH_FOLDER_PATH = Path("/mnt/f/bag_aiflopp/Bag_Trento/")
-    OUTPUT_PATH = Path("/home/ubuntu/giodir/digitalPathology/data/features/uni_features_TR/")
+    PATCH_FOLDER_PATH = Path("/mnt/g/AIFlopp/Patch_Milano")#"/mnt/f/bag_aiflopp/Bag_Trento/")
+    OUTPUT_PATH = Path("/home/ubuntu/giodir/digitalPathology/data/features/uni_features_MI/")
 
     UNI_WEIGHTS_PATH = "/home/ubuntu/giodir/misc/pytorch_model.bin"
 

@@ -3,14 +3,18 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pandas as pd
 import yaml
+
+from aiflopp.train_mil_attention import compute_pos_weight
 
 
 DEFAULT_CONFIG = Path("/home/ubuntu/giodir/digitalPathology/flare_exp/configs/base_config_fed.yaml")
 DEFAULT_MANIFEST_NAME = "fl_cad_binary_diff_5cv"
 DEFAULT_JOB_NAME = "fl_cad_binary_diff_5cv"
 DEFAULT_FOLDS = ["fold_01", "fold_02", "fold_03", "fold_04", "fold_05"]
-COMPLETE_MARKER = Path("server/simulate_job/app_server/best_FL_global_model.pt")
+MERGED_MANIFEST_ROOT = Path("/home/ubuntu/giodir/digitalPathology/data/manifests/mergedRT")
+COMPLETE_MARKER = Path("server/simulate_job/app_server/FL_global_model.pt")
 
 
 def parse_args() -> argparse.Namespace:
@@ -20,6 +24,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--manifest-name", default=None)
     parser.add_argument("--job-name", default=None)
     parser.add_argument("--output-dir", type=Path, default=None)
+    parser.add_argument("--merged-manifest-root", type=Path, default=MERGED_MANIFEST_ROOT)
+    parser.add_argument("--global-pos-weight", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--folds", nargs="+", default=DEFAULT_FOLDS)
     parser.add_argument("--skip-existing", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
@@ -78,16 +84,28 @@ def validate_expected_output(job_dir: Path, skip_existing: bool) -> bool:
     return False
 
 
+def compute_global_pos_weight(merged_manifest_root: Path, manifest_name: str, fold_name: str) -> float:
+    # Compute n_negative / n_positive from the merged train manifest for one fold.
+    merged_train_manifest_path = merged_manifest_root / manifest_name / fold_name / "train_manifest.csv"
+    if not merged_train_manifest_path.exists():
+        raise FileNotFoundError(f"Missing merged train manifest for global pos_weight: {merged_train_manifest_path}")
+
+    manifest_df = pd.read_csv(merged_train_manifest_path)
+    pos_weight = compute_pos_weight(manifest_df, device="cpu")
+    return pos_weight.item()
+
+
 def build_job_command(
     args: argparse.Namespace,
     output_dir: Path,
     manifest_name: str,
     job_name: str,
     fold_name: str,
+    pos_weight: float | None,
 ) -> list[str]:
     # Build one flare_exp.job command with fold-specific manifest and job name.
     fold_job_name = f"{job_name}_{fold_name}"
-    return [
+    command = [
         sys.executable,
         "-m",
         "flare_exp.job",
@@ -102,6 +120,10 @@ def build_job_command(
         "--wandb-group",
         job_name,
     ]
+    # Pass global pos_weight if requested
+    if pos_weight is not None:
+        command.extend(["--pos-weight", f"{pos_weight:.12g}"])
+    return command
 
 
 def main() -> None:
@@ -118,7 +140,13 @@ def main() -> None:
         if validate_expected_output(job_dir, args.skip_existing):
             continue
 
-        command = build_job_command(args, output_dir, manifest_name, job_name, fold_name)
+        # Compute global pos_weight if requested
+        pos_weight = None
+        if args.global_pos_weight:
+            pos_weight = compute_global_pos_weight(args.merged_manifest_root, manifest_name, fold_name)
+            print(f"Using global pos_weight for {fold_name}: {pos_weight:.4f}")
+
+        command = build_job_command(args, output_dir, manifest_name, job_name, fold_name, pos_weight)
         print(f"Running {fold_name}: {' '.join(command)}")
         if args.dry_run:
             continue

@@ -261,6 +261,19 @@ job_name
 
 All fold runs share the same W&B group, while each fold still has a unique job name.
 
+For the fair baseline, the launcher should use the global fold-specific class weight:
+
+```text
+--global-pos-weight
+```
+
+This computes `n_negative / n_positive` from the merged train manifest for each fold and passes
+that value to every FL client. To keep the older local-client behavior, use:
+
+```text
+--no-global-pos-weight
+```
+
 ### FL Metrics Evaluation
 
 ```text
@@ -268,6 +281,9 @@ flare_exp/evaluate_fl_cv_metrics.py
 ```
 
 Exports FL checkpoints into a standard evaluator format and evaluates all FL targets.
+To do a fair comparison, it loads the final trained model `FL_global_model.pt` for both global and local version.
+Set `GLOBAL_MODEL_NAME="best_FL_global_model.pt"` in order to use the best one.
+Local FL models are taken from the latest available client round unless `LOCAL_ROUND` is set in the script.
 
 It exports:
 
@@ -307,14 +323,22 @@ The comparison is only meaningful if the non-data choices remain aligned:
 - Same metric set.
 - Same fold-level mean/std reporting.
 - Same random seed policy as much as possible.
+- Fixed training budget, not early stopping.
+- Non-FL model evaluated from the final fixed-budget fold checkpoint.
+- Global fold-specific `pos_weight` for FL clients, computed from the merged train manifest.
 
-For the current gated CAD-diff experiment, the FL config is:
+The local-client `pos_weight` behavior is still useful as a later personalization ablation, but it
+should not be mixed into the primary fair baseline unless clearly reported as a separate experiment.
+
+For the current fixed-budget CAD-diff baseline, the configs are:
 
 ```text
-flare_exp/configs/gated_bs512_d05_CAD_DIFF_fed.yaml
+aiflopp/configs/base_CAD_DIFF.yaml
+flare_exp/configs/base_CAD_DIFF_fed.yaml
 ```
 
-It mirrors the non-FL gated model settings where applicable.
+These should mirror the model, feature, optimizer, batch, bag-size, and training-budget settings
+where applicable.
 
 ---
 
@@ -349,11 +373,21 @@ Run this only when the merged global folds need to be created or refreshed:
 PYTHONPATH=. python3 aiflopp/preprocessing/merge_client_cv_folds.py
 ```
 
+### Train Non-FL Across The Merged 5 CV Folds
+
+```bash
+PYTHONPATH=. python3 -m aiflopp.train_mil_attention_cv \
+  --config aiflopp/configs/base_CAD_DIFF.yaml \
+  --folds-dir /home/ubuntu/giodir/digitalPathology/data/manifests/mergedRT/fl_cad_binary_diff_5cv \
+  --output-dir /home/ubuntu/giodir/digitalPathology/outputs/cad_binary_diff/trained_models/nonFL-base \
+  --skip-existing
+```
+
 ### Train FL Across The 5 CV Folds
 
 ```bash
 PYTHONPATH=. python3 -m flare_exp.run_fl_cv \
-  --config flare_exp/configs/gated_bs512_d05_CAD_DIFF_fed.yaml \
+  --config flare_exp/configs/base_CAD_DIFF_fed.yaml \
   --skip-existing
 ```
 
@@ -361,8 +395,8 @@ PYTHONPATH=. python3 -m flare_exp.run_fl_cv \
 
 ```bash
 PYTHONPATH=. python3 -m aiflopp.evaluate_nonfl_on_clients \
-  --checkpoint-root /home/ubuntu/giodir/digitalPathology/outputs/cad_binary_diff/trained_models/nonFL-gated_bs512_d05 \
-  --output-root /home/ubuntu/giodir/digitalPathology/outputs/cad_binary_diff/evaluations/nonFL-gated_bs512_d05 \
+  --checkpoint-root /home/ubuntu/giodir/digitalPathology/outputs/cad_binary_diff/trained_models/nonFL-base \
+  --output-root /home/ubuntu/giodir/digitalPathology/outputs/cad_binary_diff/evaluations/nonFL-base \
   --manifest-name fl_cad_binary_diff_5cv
 ```
 
@@ -370,7 +404,7 @@ PYTHONPATH=. python3 -m aiflopp.evaluate_nonfl_on_clients \
 
 ```bash
 PYTHONPATH=. python3 flare_exp/evaluate_fl_cv_metrics.py \
-  --config flare_exp/configs/gated_bs512_d05_CAD_DIFF_fed.yaml
+  --config flare_exp/configs/base_CAD_DIFF_fed.yaml
 ```
 
 ### Evaluate A Single Model/Dataset CV Pair Manually

@@ -35,6 +35,7 @@ CLIENT_ARGS = (
     "batch_size",
     "lr",
     "weight_decay",
+    "pos_weight",
     "patience",
     "max_bag_size",
     "num_workers",
@@ -116,6 +117,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--lr", type=float, default=5e-4)
     parser.add_argument("--weight-decay", type=float, default=1e-4)
+    parser.add_argument("--pos-weight", type=float, default=None)
     parser.add_argument("--patience", type=int, default=10)
     parser.add_argument("--max-bag-size", type=int, default=0)
     parser.add_argument("--num-workers", type=int, default=4)
@@ -159,6 +161,8 @@ def build_client_train_args(args: argparse.Namespace) -> str:
     for attr_name in CLIENT_ARGS:
         cli_name = f"--{attr_name.replace('_', '-')}"
         value = getattr(args, attr_name)
+        if value is None:
+            continue
 
         if cli_name == "--output-dir":
             # Append job name to output dir for each client
